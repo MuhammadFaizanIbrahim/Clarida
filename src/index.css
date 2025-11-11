@@ -1,1 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
+
+/* 2. Define CSS variables for typography & colors */
+:root {
+  /* Fonts */
+  --font-heading: "Figtree", sans-serif;
+  --font-body: "Figtree", sans-serif;
+
+  /* Typography sizes & weights */
+  --h1-size: 88px;
+  --h1-weight: 500;
+  --h1-line-height: 100%;
+  --h1-letter-spacing: 0.02em;
+
+  --h2-size: 76px;
+  --h2-weight: 500;
+  --h2-line-height: 100%;
+  --h2-letter-spacing: 0.02em;
+
+  --h3-size: 52px;
+  --h3-weight: 500;
+  --h3-line-height: 72px;
+  --h3-letter-spacing: 0.02em;
+
+  --hero-top-text-size: 32px;
+  --hero-top-text-weight: 500;
+  --hero-top-text-line-height: 100%;
+  --hero-top-text-letter-spacing: 0.05em; /* 5% */
+
+  --hero-p-normal-size: 24px;
+  --hero-p-normal-weight: 500;
+  --hero-p-normal-line-height: 42px;
+  --hero-p-normal-letter-spacing: 0.02em;
+
+  --btn-size: 18px;
+  --btn-weight: 600;
+  --btn-line-height: 100%;
+  --btn-letter-spacing: 0.02em; /* 2% */
+
+  --nav-menu-text-size: 20px;
+  --nav-menu-text-weight: 500;
+  --nav-menu-text-line-height: 42px;
+  --nav-menu-text-letter-spacing: 0.02em;
+
+  --nav-menu-items-size: 18px;
+  --nav-menu-items-weight: 500;
+  --nav-menu-items-line-height: 42px;
+  --nav-menu-items-letter-spacing: 0%;
+
+  --section-3-size: 62px;
+  --section-3-weight: 500;
+  --section-3-line-height: 100%;
+  --section-3-letter-spacing: 0.02em; /* 2% */
+
+  --sections-para-size: 32px;
+  --sections-para-weight: 500;
+  --sections-para-line-height: 42px;
+  --sections-para-letter-spacing: 0.02em; /* 2% */
+
+  --section-3-names-text-size: 30px;
+  --section-3-names-text-weight: 500;
+  --section-3-names-text-line-height: 56px;
+  --section-3-names-text-letter-spacing: 0.02em; /* 2% */
+
+  --section-3-small-heading-size: 42px;
+  --section-3-small-heading-weight: 500;
+  --section-3-small-heading-line-height: 100%;
+  --section-3-small-heading-letter-spacing: 0.02em; /* 2% */
+
+  --sections-light-text-size: 42px;
+  --sections-light-text-weight: 300;
+  --sections-light-text-line-height: 100%;
+  --sections-light-text-letter-spacing: 0%; /* 0% */
+
+  /* Colors */
+  --color-bg: #0D1F2D;
+  --color-text: #FFFFFF;
+  --color-pearl-white: #E6EBF0;
+  --color-midnight-teal: #12343B;
+  --color-bioluminescent-aqua: #3CD3AD;
+  --color-logo-blue: #39D5DE;
+  --color-golden-amber-light: #FFD684;
+  --color-ocular-rose-gold: #D8A6A1;
+}
+
+/* Tablet (max-width: 1024px) */
+@media (max-width: 1024px) {
+  :root {
+    --h1-size: 64px;
+    --h2-size: 56px;
+    --h3-size: 42px;
+
+    --hero-top-text-size: 24px;
+    --hero-p-normal-size: 20px;
+
+    --btn-size: 16px;
+
+    --nav-menu-items-size: 16px;
+
+    --section-3-size: 46px;
+    --sections-para-size: 24px;
+    --section-3-names-text-size: 24px;
+    --section-3-small-heading-size: 32px;
+    --sections-light-text-size: 32px;
+  }
+}
+
+/* Mobile (max-width: 768px) */
+@media (max-width: 768px) {
+  :root {
+    --h1-size: 36px;
+    --h2-size: 32px;
+
+    --h3-size: 32px;
+    --h3-line-height: 42px;
+
+    --hero-top-text-size: 16px;
+    --hero-p-normal-size: 16px;
+    --btn-size: 16px;
+    --nav-menu-text-size: 26px;
+    --nav-menu-items-size: 18px;
+    --section-3-size: 42px;
+
+    --sections-para-size: 20px;
+    --sections-para-line-height: 32px;
+
+    --section-3-names-text-size: 20px;
+    --section-3-small-heading-size: 26px;
+    --sections-light-text-size: 32px;
+  }
+}
+
+/* 3. Typography classes */
+.h1-text { font-family: var(--font-heading); font-size: var(--h1-size); font-weight: var(--h1-weight); line-height: var(--h1-line-height); letter-spacing: var(--h1-letter-spacing); color: var(--color-text); }
+.h2-text { font-family: var(--font-heading); font-size: var(--h2-size); font-weight: var(--h2-weight); line-height: var(--h2-line-height); letter-spacing: var(--h2-letter-spacing); color: var(--color-text); }
+.h2-text-bold { font-family: var(--font-heading); font-size: var(--h2-size); font-weight: 700; line-height: var(--h2-line-height); letter-spacing: var(--h2-letter-spacing); color: var(--color-text); font-style: italic; }
+.h3-text { font-family: var(--font-heading); font-size: var(--h3-size); font-weight: var(--h3-weight); line-height: var(--h3-line-height); letter-spacing: var(--h3-letter-spacing); color: var(--color-text); }
+.h3-text-bold { font-family: var(--font-heading); font-size: var(--h3-size); font-weight: 700; line-height: var(--h3-line-height); letter-spacing: var(--h3-letter-spacing); color: var(--color-text); font-style: italic; }
+.hero-paragraph-normal { font-family: var(--font-body); font-size: var(--p-normal-size); font-weight: var(--p-normal-weight); line-height: var(--p-normal-line-height); letter-spacing: var(--p-normal-letter-spacing); color: var(--color-text); }
+.hero-paragraph-bold { font-family: var(--font-body); font-size: var(--p-normal-size); font-weight: 700; line-height: var(--p-normal-line-height); letter-spacing: var(--p-normal-letter-spacing); color: var(--color-text); }
+.hero-top-text { font-family: 'Manrope', sans-serif; font-size: var(--hero-top-text-size); font-weight: var(--hero-top-text-weight); line-height: var(--hero-top-text-line-height); letter-spacing: var(--hero-top-text-letter-spacing); font-style: normal; color: var(--color-text); }
+.menu-text { font-family: var(--font-heading); font-size: var(--nav-menu-text-size); font-weight: var(--nav-menu-text-weight); line-height: var(--nav-menu-text-line-height); letter-spacing: var(--nav-menu-text-letter-spacing); color: var(--color-text); }
+.menu-items-dropdown-text { font-family: var(--font-heading); font-size: var(--nav-menu-items-size); font-weight: var(--nav-menu-items-weight); line-height: var(--nav-menu-items-line-height); letter-spacing: var(--nav-menu-items-letter-spacing); color: var(--color-text); }
+.section-3-heading-text { font-family: var(--font-heading); font-size: var(--section-3-size); font-weight: var(--section-3-weight); line-height: var(--section-3-line-height); letter-spacing: var(--section-3-letter-spacing); font-style: normal; color: var(--color-text); }
+.section-3-heading-text-bold { font-family: var(--font-heading); font-size: var(--section-3-size); font-weight: 700; line-height: var(--section-3-line-height); letter-spacing: var(--section-3-letter-spacing); font-style: italic; color: var(--color-text); }
+.section-3-names-text { font-family: var(--font-heading); font-size: var(--section-3-names-text-size); font-weight: var(--section-3-names-text-weight); line-height: var(--section-3-names-text-line-height); letter-spacing: var(--section-3-names-text-letter-spacing); font-style: normal; color: var(--color-text); }
+.section-3-small-heading { font-family: var(--font-heading); font-size: var(--section-3-small-heading-size); font-weight: var(--section-3-small-heading-weight); line-height: var(--section-3-small-heading-line-height); letter-spacing: var(--section-3-small-heading-letter-spacing); font-style: normal; color: var(--color-text); }
+.sections-paragraph-text { font-family: var(--font-heading); font-size: var(--sections-para-size); font-weight: var(--sections-para-weight); line-height: var(--sections-para-line-height); letter-spacing: var(--sections-para-letter-spacing); font-style: normal; color: var(--color-text); }
+.sections-light-text { font-family: var(--font-heading); font-size: var(--sections-light-text-size); font-weight: var(--sections-light-text-weight); line-height: var(--sections-light-text-line-height); letter-spacing: var(--sections-light-text-letter-spacing); font-style: normal; color: var(--color-text); text-align: center; }
+
+.btn {
+  font-family: var(--font-heading);
+  font-weight: var(--btn-weight);    /* 600 SemiBold */
+  line-height: var(--btn-line-height);
+  letter-spacing: var(--btn-letter-spacing);
+  color: var(--color-text);
+
+  border-radius: 200px;
+  border: 1px solid #FFFFFF;
+  background-color: rgba(255, 255, 255, 0); /* #FFFFFF0D */
+
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+}
+
+.btn:hover {
+  background-color: rgba(255, 255, 255, 0.25); /* #FFFFFF40 */
+}

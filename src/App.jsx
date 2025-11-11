@@ -1,11 +1,12 @@
 import './App.css'
+import Header from './sections/Header';
 
 function App() {
   return (
-    <div className="w-full min-h-screen flex items-center justify-center bg-green-900 text-white text-4xl font-bold">
-      Its Clarida Project
+    <div className="min-h-screen bg-[#0C1A24]">
+      <Header />
     </div>
   );
 }
 
-export default App
+export default App;
