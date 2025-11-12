@@ -34,7 +34,7 @@
   --hero-p-normal-line-height: 42px;
   --hero-p-normal-letter-spacing: 0.02em;
 
-  --btn-size: 18px;
+  --btn-text-size: 16px;
   --btn-weight: 600;
   --btn-line-height: 100%;
   --btn-letter-spacing: 0.02em; /* 2% */
@@ -95,8 +95,8 @@
     --hero-top-text-size: 24px;
     --hero-p-normal-size: 20px;
 
-    --btn-size: 16px;
-
+    --btn-text-size: 14px;
+    --nav-menu-text-size: 18px;
     --nav-menu-items-size: 16px;
 
     --section-3-size: 46px;
@@ -118,8 +118,9 @@
 
     --hero-top-text-size: 16px;
     --hero-p-normal-size: 16px;
-    --btn-size: 16px;
+    --btn-text-size: 16px;
     --nav-menu-text-size: 26px;
+    --nav-menu-text-line-height: 62px;
     --nav-menu-items-size: 18px;
     --section-3-size: 42px;
 
@@ -151,6 +152,7 @@
 .sections-light-text { font-family: var(--font-heading); font-size: var(--sections-light-text-size); font-weight: var(--sections-light-text-weight); line-height: var(--sections-light-text-line-height); letter-spacing: var(--sections-light-text-letter-spacing); font-style: normal; color: var(--color-text); text-align: center; }
 
 .btn {
+  font-size: var(--btn-text-size);
   font-family: var(--font-heading);
   font-weight: var(--btn-weight);    /* 600 SemiBold */
   line-height: var(--btn-line-height);
