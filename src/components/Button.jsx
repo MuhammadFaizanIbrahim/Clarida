@@ -7,11 +7,12 @@ const Button = ({
   height = "",
 //   top = "",   
 //   left = "",  
-  extra = ""  
+  extra = "",
+  variant = "btn", // "btn" or "btn-header"
 }) => {
   return (
     <button
-      className={`btn ${width} ${height} ${extra}`}
+      className={`${variant} ${width} ${height} ${extra}`}
     >
       {children}
     </button>

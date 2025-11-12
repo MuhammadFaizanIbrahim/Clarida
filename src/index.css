@@ -34,7 +34,8 @@
   --hero-p-normal-line-height: 42px;
   --hero-p-normal-letter-spacing: 0.02em;
 
-  --btn-text-size: 16px;
+  --btn-header-text-size: 16px;
+  --btn-text-size: 18px;
   --btn-weight: 600;
   --btn-line-height: 100%;
   --btn-letter-spacing: 0.02em; /* 2% */
@@ -88,13 +89,14 @@
 /* Tablet (max-width: 1024px) */
 @media (max-width: 1024px) {
   :root {
-    --h1-size: 64px;
-    --h2-size: 56px;
+    --h1-size: 54px;
+    --h2-size: 48px;
     --h3-size: 42px;
 
     --hero-top-text-size: 24px;
     --hero-p-normal-size: 20px;
 
+    --btn-header-text-size: 14px;
     --btn-text-size: 14px;
     --nav-menu-text-size: 18px;
     --nav-menu-items-size: 16px;
@@ -139,8 +141,8 @@
 .h2-text-bold { font-family: var(--font-heading); font-size: var(--h2-size); font-weight: 700; line-height: var(--h2-line-height); letter-spacing: var(--h2-letter-spacing); color: var(--color-text); font-style: italic; }
 .h3-text { font-family: var(--font-heading); font-size: var(--h3-size); font-weight: var(--h3-weight); line-height: var(--h3-line-height); letter-spacing: var(--h3-letter-spacing); color: var(--color-text); }
 .h3-text-bold { font-family: var(--font-heading); font-size: var(--h3-size); font-weight: 700; line-height: var(--h3-line-height); letter-spacing: var(--h3-letter-spacing); color: var(--color-text); font-style: italic; }
-.hero-paragraph-normal { font-family: var(--font-body); font-size: var(--p-normal-size); font-weight: var(--p-normal-weight); line-height: var(--p-normal-line-height); letter-spacing: var(--p-normal-letter-spacing); color: var(--color-text); }
-.hero-paragraph-bold { font-family: var(--font-body); font-size: var(--p-normal-size); font-weight: 700; line-height: var(--p-normal-line-height); letter-spacing: var(--p-normal-letter-spacing); color: var(--color-text); }
+.hero-paragraph-normal { font-family: var(--font-body); font-size: var(--hero-p-normal-size); font-weight: var(--hero-p-normal-weight); line-height: var(--hero-p-normal-line-height); letter-spacing: var(--hero-p-normal-letter-spacing); color: var(--color-text); }
+.hero-paragraph-bold { font-family: var(--font-body); font-size: var(--hero-p-normal-size); font-weight: 700; line-height: var(--hero-p-normal-line-height); letter-spacing: var(--hero-p-normal-letter-spacing); color: var(--color-text); }
 .hero-top-text { font-family: 'Manrope', sans-serif; font-size: var(--hero-top-text-size); font-weight: var(--hero-top-text-weight); line-height: var(--hero-top-text-line-height); letter-spacing: var(--hero-top-text-letter-spacing); font-style: normal; color: var(--color-text); }
 .menu-text { font-family: var(--font-heading); font-size: var(--nav-menu-text-size); font-weight: var(--nav-menu-text-weight); line-height: var(--nav-menu-text-line-height); letter-spacing: var(--nav-menu-text-letter-spacing); color: var(--color-text); }
 .menu-items-dropdown-text { font-family: var(--font-heading); font-size: var(--nav-menu-items-size); font-weight: var(--nav-menu-items-weight); line-height: var(--nav-menu-items-line-height); letter-spacing: var(--nav-menu-items-letter-spacing); color: var(--color-text); }
@@ -170,6 +172,30 @@
   transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
 }
 
+.btn-header {
+  font-size: var(--btn-header-text-size);
+  font-family: var(--font-heading);
+  font-weight: var(--btn-weight);    /* 600 SemiBold */
+  line-height: var(--btn-line-height);
+  letter-spacing: var(--btn-letter-spacing);
+  color: var(--color-text);
+
+  border-radius: 200px;
+  border: 1px solid #FFFFFF;
+  background-color: rgba(255, 255, 255, 0); /* #FFFFFF0D */
+
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+}
+
 .btn:hover {
   background-color: rgba(255, 255, 255, 0.25); /* #FFFFFF40 */
 }
+
+.btn-header:hover {
+  background-color: rgba(255, 255, 255, 0.25); /* #FFFFFF40 */
+}
+

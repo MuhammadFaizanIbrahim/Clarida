@@ -96,6 +96,7 @@ const Header = () => {
           width="w-[170px] lg:w-[10.313vw]"
           height="h-[40px] lg:h-[2.083vw]"
           extra="gap-2 lg:gap-4 lg:py-[12px] lg:px-[12px] hidden md:flex"
+          variant="btn-header"
         >
           Begin your journey
           <img src="/arrowIcon.svg" alt="Clarida Text" className="rotate-270" />
@@ -121,7 +122,7 @@ const Header = () => {
 
       {/* Mobile Menu Overlay */}
       {isMenuOpen && (
-        <div className="menu-text absolute top-full right-0 w-full h-full bg-transparent backdrop-blur-lg flex flex-col gap-8">
+        <div className="menu-text absolute top-full right-0 w-full h-screen bg-white/10 backdrop-blur-md flex flex-col gap-8">
           <div className="py-4 px-7 flex flex-col gap-3">
             <a href="#" className="hover:text-cyan-400">
               Home
@@ -188,13 +189,13 @@ const Header = () => {
                 />
               )}
             </div>
-            <a href="#" className="hover:text-cyan-400">
+            <a href="#">
               Vision Guide AI
             </a>
-            <a href="#" className="hover:text-cyan-400">
+            <a href="#">
               About Clarida
             </a>
-            <a href="#" className="hover:text-cyan-400">
+            <a href="#">
               Early Access/Store
             </a>
           </div>
