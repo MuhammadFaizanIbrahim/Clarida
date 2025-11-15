@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wght@400&display=swap');
 @import "tailwindcss";
 
 /* 2. Define CSS variables for typography & colors */
@@ -75,6 +76,17 @@
   --sections-light-text-line-height: 100%;
   --sections-light-text-letter-spacing: 0%; /* 0% */
 
+  --quotationText-font-family: "Noto Serif Display";
+  --quotationText-size: 200px;
+  --quotationText-style: normal;
+  --quotationText-weight: 400;
+  --quotationText-line-height: normal;
+
+  --NamesText-size: 20px;
+  --NamesText-weight: 500;
+  --NamesText-line-height: normal;
+  --NamesText-letter-spacing: 1px;
+
   /* Colors */
   --color-bg: #0D1F2D;
   --color-text: #FFFFFF;
@@ -101,11 +113,13 @@
     --nav-menu-text-size: 18px;
     --nav-menu-items-size: 16px;
 
-    --section-3-size: 46px;
-    --sections-para-size: 24px;
-    --section-3-names-text-size: 24px;
+    --section-3-size: 40px;
+    --sections-para-size: 20px;
+    --section-3-names-text-size: 22px;
     --section-3-small-heading-size: 32px;
     --sections-light-text-size: 32px;
+    --quotationText-size: 120px;
+    --NamesText-size: 16px;
   }
 }
 
@@ -113,18 +127,24 @@
 @media (max-width: 768px) {
   :root {
     --h1-size: 36px;
+    --h1-line-height: 120%;
+
     --h2-size: 32px;
 
     --h3-size: 32px;
     --h3-line-height: 42px;
 
     --hero-top-text-size: 16px;
+
     --hero-p-normal-size: 16px;
+    --hero-p-normal-line-height: 24px;
+    --hero-p-normal-letter-spacing: 0.32px;
+
     --btn-text-size: 16px;
     --nav-menu-text-size: 26px;
     --nav-menu-text-line-height: 62px;
     --nav-menu-items-size: 18px;
-    --section-3-size: 42px;
+    --section-3-size: 36px;
 
     --sections-para-size: 20px;
     --sections-para-line-height: 32px;
@@ -132,6 +152,9 @@
     --section-3-names-text-size: 20px;
     --section-3-small-heading-size: 26px;
     --sections-light-text-size: 32px;
+    --quotationText-size: 105px;
+    --NamesText-size: 16px;
+    --NamesText-letter-spacing: 5%;
   }
 }
 
@@ -148,10 +171,13 @@
 .menu-items-dropdown-text { font-family: var(--font-heading); font-size: var(--nav-menu-items-size); font-weight: var(--nav-menu-items-weight); line-height: var(--nav-menu-items-line-height); letter-spacing: var(--nav-menu-items-letter-spacing); color: var(--color-text); }
 .section-3-heading-text { font-family: var(--font-heading); font-size: var(--section-3-size); font-weight: var(--section-3-weight); line-height: var(--section-3-line-height); letter-spacing: var(--section-3-letter-spacing); font-style: normal; color: var(--color-text); }
 .section-3-heading-text-bold { font-family: var(--font-heading); font-size: var(--section-3-size); font-weight: 700; line-height: var(--section-3-line-height); letter-spacing: var(--section-3-letter-spacing); font-style: italic; color: var(--color-text); }
-.section-3-names-text { font-family: var(--font-heading); font-size: var(--section-3-names-text-size); font-weight: var(--section-3-names-text-weight); line-height: var(--section-3-names-text-line-height); letter-spacing: var(--section-3-names-text-letter-spacing); font-style: normal; color: var(--color-text); }
+.section-3-names-text-selected { font-family: var(--font-heading); font-size: var(--section-3-names-text-size); font-weight: var(--section-3-names-text-weight); line-height: var(--section-3-names-text-line-height); letter-spacing: var(--section-3-names-text-letter-spacing); font-style: normal; color: var(--color-text); }
+.section-3-names-text-unselected { font-family: var(--font-heading); font-size: var(--section-3-names-text-size); font-weight: var(--section-3-names-text-weight); line-height: var(--section-3-names-text-line-height); letter-spacing: var(--section-3-names-text-letter-spacing); font-style: normal; color: rgba(255, 255, 255, 0.50);}
 .section-3-small-heading { font-family: var(--font-heading); font-size: var(--section-3-small-heading-size); font-weight: var(--section-3-small-heading-weight); line-height: var(--section-3-small-heading-line-height); letter-spacing: var(--section-3-small-heading-letter-spacing); font-style: normal; color: var(--color-text); }
 .sections-paragraph-text { font-family: var(--font-heading); font-size: var(--sections-para-size); font-weight: var(--sections-para-weight); line-height: var(--sections-para-line-height); letter-spacing: var(--sections-para-letter-spacing); font-style: normal; color: var(--color-text); }
 .sections-light-text { font-family: var(--font-heading); font-size: var(--sections-light-text-size); font-weight: var(--sections-light-text-weight); line-height: var(--sections-light-text-line-height); letter-spacing: var(--sections-light-text-letter-spacing); font-style: normal; color: var(--color-text); text-align: center; }
+.quotationText { color: var(--color-text); font-family: var(--quotationText-font-family); font-size: var(--quotationText-size); font-style: var(--quotationText-style); font-weight: var(--quotationText-weight); line-height: var(--quotationText-line-height); }
+.NamesText { color: var(--color-text); font-family: var(--font-heading); font-size: var(--NamesText-size); font-style: var(--NamesText-style); font-weight: var(--NamesText-weight); line-height: var(--NamesText-line-height); letter-spacing: var(--NamesText-letter-spacing); }
 
 .btn {
   font-size: var(--btn-text-size);
