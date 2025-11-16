@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import Button from "../components/Button";
 import { useMediaQuery } from "react-responsive";
+import { motion, AnimatePresence  } from "framer-motion";
+import EntranceAnimation, { itemVariants } from "../components/EntranceAnimation";
 
 const testimonialsData = [
   {
@@ -95,6 +97,7 @@ const testimonialsData = [
   },
   {
     name: "Ester",
+    video: "/videos/hero-bg.mp4",
     image: "/bg-leon.jpg",
     quoteStart: "It felt like",
     highlight: [
@@ -107,6 +110,7 @@ const testimonialsData = [
   },
   {
     name: "Adriana",
+    video: "/videos/hero-bg.mp4",
     image: "/bg-leon.jpg",
     quoteStart: "It felt like",
     highlight: [
@@ -119,6 +123,7 @@ const testimonialsData = [
   },
   {
     name: "Mariana",
+    video: "/videos/hero-bg.mp4",
     image: "/bg-leon.jpg",
     quoteStart: "It felt like",
     highlight: [
@@ -134,32 +139,76 @@ const testimonialsData = [
 const Testimonials = () => {
   const [active, setActive] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false); // <-- add this
+  const [hideLeft, setHideLeft] = useState(false);
   const t = testimonialsData[active];
-  const isMobile = useMediaQuery({ maxWidth: 767 }); // same as Tailwind's 'md' breakpoint
+  const hasVideo = Boolean(t.video);
+  const isMobile = useMediaQuery({ maxWidth: 767 });
+  const isDesktop = useMediaQuery({ minWidth: 1024 });
+  const extraIcon = "icons/videoIcon.svg";
 
   return (
     <section
-      className="relative w-full min-h-screen bg-no-repeat sm:bg-auto md:bg-cover lg:bg-auto flex flex-col-reverse md:flex-row 
-      items-center justify-between px-8 py-15 md:px-20 md:py-20 lg:px-[7.813vw] lg:py-[6.5vw]"
+      className="relative z-10 w-full min-h-screen overflow-hidden flex flex-col-reverse md:flex-row 
+    items-center justify-between px-8 py-15 md:px-20 md:py-20 lg:px-[7.813vw] lg:py-[6.5vw]"
+      style={{
+        backgroundImage: hasVideo
+          ? "none"
+          : `url(${isMobile ? t.mob_image : t.image})`,
+      }}
+    >
+      <AnimatePresence mode="wait">
+  {!hasVideo && (
+    <motion.div
+      key={active} // triggers animation on tab change
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="absolute inset-0 w-full h-full z-0 bg-cover"
       style={{
         backgroundImage: `url(${isMobile ? t.mob_image : t.image})`,
       }}
-    >    
+    />
+  )}
+</AnimatePresence>
+      {hasVideo && (
+        <video
+          src={t.video}
+          autoPlay
+          muted
+          loop
+          playsInline
+          onPlay={() => setHideLeft(true)} // hide when video starts
+          onPause={() => setHideLeft(false)} // optional: show when video pauses
+          className="absolute inset-0 w-full h-full object-cover z-0"
+        />
+      )}
 
       {/* LEFT PANEL */}
-      <div className="w-[350px] md:w-[300px] lg:w-[22.469vw] bg-white/5 backdrop-blur-[5px]
-       border border-white/50 rounded-lg px-[45px] py-5 md:p-[1.563vw]">
-        <h3 className="section-3-small-heading text-center md:text-left">
-          <span className="md:inline-block">See What </span>
-          <span className="md:inline-block md:ml-[calc(5.5ch)]">They See</span>
-        </h3>
+      <div
+        className={`relative z-10 w-[350px] md:w-[290px] lg:w-[20.469vw] bg-white/5 backdrop-blur-[5px]
+        border border-white/50 rounded-lg px-[45px] py-5 md:p-[1.563vw]
+        transition-opacity duration-500
+        ${!isDesktop && "opacity-100"} ${
+          isDesktop && hideLeft ? "opacity-0" : "opacity-100"
+        }`}
+        {...(isDesktop && {
+          onMouseEnter: () => setHideLeft(false),
+          onMouseLeave: () => hasVideo && setHideLeft(true),
+        })}
+      >
+        <motion.h3 className="section-3-small-heading text-center md:text-left" variants={itemVariants}>
+          <motion.span className="md:inline-block">See What </motion.span>
+          <motion.span className="md:inline-block md:ml-[calc(5.5ch)]">They See</motion.span>
+        </motion.h3>
 
         {/* Mobile Dropdown */}
-        <div className="mt-6 relative md:hidden">
-          <button
+        <motion.div className="mt-6 relative md:hidden" variants={itemVariants}>
+          <motion.button
             onClick={() => setDropdownOpen(!dropdownOpen)}
+            variants={itemVariants}
             className="w-full h-[50px] flex justify-between items-center px-5 rounded-lg border border-white/50 bg-white/20 backdrop-blur-[5px] cursor-pointer text-left section-3-names-text-selected"
-            >
+          >
             {testimonialsData[active].name}
             <img
               src="icons/arrowIcon.svg"
@@ -168,47 +217,66 @@ const Testimonials = () => {
                 dropdownOpen ? "rotate-180" : ""
               }`}
             />
-          </button>
+          </motion.button>
 
           {dropdownOpen && (
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-full rounded-lg border border-white/50 bg-(--color-bg) backdrop-blur-[5px] mt-2 flex flex-col z-20">
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-full rounded-lg border border-white/50 bg-(--color-bg) backdrop-blur-[5px] mt-2 flex flex-col z-20" variants={itemVariants}>
               {testimonialsData.map((item, index) => (
                 <button
                   key={item.name}
+                  variants={itemVariants}
                   onClick={() => {
                     setActive(index);
                     setDropdownOpen(false);
                   }}
-                  className={`block text-left px-4 cursor-pointer transition ${
+                  className={`flex text-left px-4 cursor-pointer transition items-center gap-2 ${
                     active === index
                       ? "section-3-names-text-selected"
                       : "section-3-names-text-unselected"
                   }`}
                 >
                   {item.name}
+
+                  {/* ICON for last 3 items */}
+                  {index >= testimonialsData.length - 3 && (
+                    <img
+                      src={extraIcon}
+                      alt="icon"
+                      className="w-4 h-4 opacity-80"
+                    />
+                  )}
                 </button>
               ))}
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Desktop Names List */}
-        <div className="hidden md:block mt-6 -space-y-2 lg:space-y-0.5">
+        <motion.div className="hidden md:block mt-6 -space-y-2 lg:space-y-0.5" variants={itemVariants}>
           {testimonialsData.map((item, index) => (
-            <button
+            <motion.button
               key={item.name}
+              variants={itemVariants}
               onClick={() => setActive(index)}
-              className={`block text-left text-base transition cursor-pointer ${
+              className={`flex text-left text-base transition cursor-pointer items-center gap-2 ${
                 active === index
                   ? "section-3-names-text-selected"
                   : "section-3-names-text-unselected"
               }`}
             >
               {item.name}
-            </button>
-          ))}
-        </div>
 
+              {/* ICON for last 3 items */}
+              {index >= testimonialsData.length - 3 && (
+                <img src={extraIcon} alt="icon" className="w-6 h-6" />
+              )}
+            </motion.button>
+          ))}
+        </motion.div>
+        <motion.div
+            variants={itemVariants}
+            transition={{ duration: 1, delay: 1.2 }} // delay in seconds
+          >
         <Button
           width="w-[263px] md:w-[250px] lg:w-[15.365vw]"
           height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
@@ -221,36 +289,49 @@ const Testimonials = () => {
             className="rotate-270"
           />
         </Button>
+        </motion.div>
       </div>
 
       {/* RIGHT PANEL */}
-      <div className="w-[350px] md:w-[430px] lg:w-[33.125vw] space-y-6 mt-10 md:mt-20 lg:mt-45">
-        <h2>
-          <span className="-mt-20 md:-mt-[8.292vw] lg:-mt-[7.292vw] absolute quotationText">
+      <EntranceAnimation className={`relative md:z-10 w-[350px] md:w-[430px] lg:w-[33.125vw] mt-10 md:mt-20 lg:mt-45
+       transition-opacity duration-500
+       ${hasVideo ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+        <AnimatePresence mode="wait">
+    <motion.div
+      key={active} // <-- this triggers exit + enter on tab change
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
+        <motion.h2>
+          <span className="-mt-20 md:-mt-[8.292vw] lg:-mt-[7.292vw] absolute quotationText" variants={itemVariants}>
             “
           </span>
-          <span className="block section-3-heading-text">{t.quoteStart}</span>
+          <motion.span className="block section-3-heading-text">{t.quoteStart}</motion.span>
           {t.highlight.map((word, i) => (
-            <span
-            key={i}
-            className={`${
-              word.bold
-                ? "section-3-heading-text-bold"
-                : "section-3-heading-text"
-            } ${i === 0 ? `ml-${isMobile ? t.mob_ml : t.ml}` : ""}`}
-          >
-            {word.text}{" "}
-          </span>
-          
+            <motion.span
+              key={i}
+              className={`${
+                word.bold
+                  ? "section-3-heading-text-bold"
+                  : "section-3-heading-text"
+              } ${i === 0 ? `ml-${isMobile ? t.mob_ml : t.ml}` : ""}`}
+            >
+              {word.text}{" "}
+            </motion.span>
           ))}
-        </h2>
+        </motion.h2>
 
-        <p className="sections-paragraph-text">{t.description}</p>
+        <motion.p className="sections-paragraph-text">{t.description}</motion.p>
 
-        <p className="NamesText">
+        <motion.p className="NamesText">
           {t.name}, {t.age}
-        </p>
-      </div>
+        </motion.p>
+        </motion.div>
+  </AnimatePresence>
+      </EntranceAnimation>
     </section>
   );
 };
