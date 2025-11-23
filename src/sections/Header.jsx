@@ -10,7 +10,7 @@ const Header = () => {
   return (
     <>
     <header
-      className="fixed left-1/2 -translate-x-1/2 z-50 w-full lg:w-[85.208vw] h-[55px] md:h-[70px] lg:h-[3.125vw] 
+      className="fixed left-1/2 -translate-x-1/2 z-50 w-full lg:w-[85.208vw] h-[55px] md:h-[70px] lg:h-[60px] 
       bg-white/10 backdrop-blur-md text-(--color-text) 
     flex items-center justify-between lg:px-5 lg:py-3 px-8 py-2 rounded-b-2xl"
     >
@@ -19,12 +19,12 @@ const Header = () => {
         <img
           src="images/logoIcon.png"
           alt="Clarida Logo"
-          className="lg:w-[1.884vw] lg:h-[2.093vw]"
+          className="lg:w-[36.173px] lg:h-[40.186px]"
         />
         <img
           src="images/logoText.svg"
           alt="Clarida Text"
-          className="w-[100px] h-[16] lg:w-[5.302vw] lg:h-[0.872vw] hidden md:flex"
+          className="w-[100px] h-[16] lg:w-[101.798px] lg:h-[16.742px] hidden md:flex"
         />
       </div>
 
@@ -95,8 +95,8 @@ const Header = () => {
       {/* Right Side */}
       <div className="flex items-center gap-5 md:gap-4">
         <Button
-          width="w-[170px] lg:w-[10.313vw]"
-          height="h-[40px] lg:h-[2.083vw]"
+          width="w-[170px] lg:w-[198.01px]"
+          height="h-[40px] lg:h-[39.994px]"
           extra="gap-2 lg:gap-4 lg:py-[12px] lg:px-[12px] hidden md:flex"
           variant="btn-header"
         >
@@ -107,7 +107,7 @@ const Header = () => {
         <img
           src="icons/audioOnIcon.svg"
           alt="Audio On/Off"
-          className="border rounded-full w-8 h-8 md:w-9 md:h-9 lg:w-[2.083vw] lg:h-[2.083vw] p-[5px] hover:bg-[rgba(255,255,255,0.25)] cursor-pointer"
+          className="border rounded-full w-8 h-8 md:w-9 md:h-9 lg:w-[39.994px] lg:h-[39.994px] p-[5px] hover:bg-[rgba(255,255,255,0.25)] cursor-pointer"
         />
 
         {/* Mobile Menu Button */}

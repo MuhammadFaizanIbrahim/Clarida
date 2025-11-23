@@ -12,7 +12,7 @@ const Hero = () => {
       {/* Background Video */}
       <video
         className="absolute inset-0 w-full h-full object-cover"
-        src="/videos/hero-bg.mp4"
+        src="/videos/hero-bg.webm"
         poster="hero-bg.png"
         autoPlay
         loop

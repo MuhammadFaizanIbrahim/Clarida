@@ -97,7 +97,7 @@ const testimonialsData = [
   },
   {
     name: "Ester",
-    video: "/videos/hero-bg.mp4",
+    video: "/videos/Ester.webm",
     image: "/bg-leon.jpg",
     quoteStart: "It felt like",
     highlight: [
@@ -110,7 +110,7 @@ const testimonialsData = [
   },
   {
     name: "Adriana",
-    video: "/videos/hero-bg.mp4",
+    video: "/videos/Adriana.webm",
     image: "/bg-leon.jpg",
     quoteStart: "It felt like",
     highlight: [
@@ -123,7 +123,7 @@ const testimonialsData = [
   },
   {
     name: "Mariana",
-    video: "/videos/hero-bg.mp4",
+    video: "/videos/Mariana.webm",
     image: "/bg-leon.jpg",
     quoteStart: "It felt like",
     highlight: [
@@ -148,7 +148,7 @@ const Testimonials = () => {
 
   return (
     <section
-      className="relative z-10 w-full min-h-screen overflow-hidden flex flex-col-reverse md:flex-row 
+      className="relative z-10 w-full h-screen overflow-hidden flex flex-col-reverse md:flex-row 
     items-center justify-between px-8 py-15 md:px-20 md:py-20 lg:px-[7.813vw] lg:py-[6.5vw]"
       style={{
         backgroundImage: hasVideo
@@ -164,7 +164,7 @@ const Testimonials = () => {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="absolute inset-0 w-full h-full z-0 bg-cover"
+      className="absolute inset-0 w-full h-full z-0 sm:bg-cover md:bg-cover lg:bg-auto"
       style={{
         backgroundImage: `url(${isMobile ? t.mob_image : t.image})`,
       }}

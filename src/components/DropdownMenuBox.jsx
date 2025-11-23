@@ -31,7 +31,7 @@ const DropdownMenu = ({
   if (mobile) {
     // ✅ Mobile: always visible inside overlay
     return (
-      <div className="relative opacity-100 -mt-1 visible bg-transparent text-[var(--color-text)]">
+      <div className="relative opacity-100 -mt-1 visible bg-transparent text-(--color-text)">
         {items.map((item, index) => (
           <a
             key={index}
@@ -48,7 +48,7 @@ const DropdownMenu = ({
   // ✅ Desktop + Tablet shared base styles
   const baseClasses = `
     absolute ${position} mt-[14px] lg:mt-[9px]
-    w-[215px] h-[151px] lg:w-[11.3vw] lg:h-[7.865vw]
+    w-[215px] h-auto
     px-4 py-2 bg-white/10 backdrop-blur-md
     rounded-b-lg shadow-lg transition-all duration-300 text-[var(--color-text)]
   `;

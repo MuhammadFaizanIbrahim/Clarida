@@ -3,6 +3,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Display:wght@400&display=swap');
 @import "tailwindcss";
 
+
+html, body {
+  overflow-x: hidden;
+}
 /* 2. Define CSS variables for typography & colors */
 :root {
   /* Fonts */
@@ -60,6 +64,11 @@
   --sections-para-weight: 500;
   --sections-para-line-height: 42px;
   --sections-para-letter-spacing: 0.02em; /* 2% */
+  
+  --section-4-para-Text-size: 32px;
+  --section-4-para-Text-weight: 500;
+  --section-4-para-Text-line-height: 42px;
+  --section-4-para-Text-letter-spacing: 0.02em; /* 2% */
 
   --section-3-names-text-size: 30px;
   --section-3-names-text-weight: 500;
@@ -70,6 +79,10 @@
   --section-3-small-heading-weight: 500;
   --section-3-small-heading-line-height: 100%;
   --section-3-small-heading-letter-spacing: 0.02em; /* 2% */
+
+  --section-4-circle-numbers-text-size: 32px;
+
+  --section-4-light-text-size: 42px;
 
   --sections-light-text-size: 42px;
   --sections-light-text-weight: 300;
@@ -86,6 +99,12 @@
   --NamesText-weight: 500;
   --NamesText-line-height: normal;
   --NamesText-letter-spacing: 1px;
+
+  --ScrollText-size: 12px;
+  --ScrollText-weight: 500;
+  --ScrollText-line-height: 26px;
+  --ScrollText-letter-spacing: 0%;
+
 
   /* Colors */
   --color-bg: #0D1F2D;
@@ -115,9 +134,12 @@
 
     --section-3-size: 40px;
     --sections-para-size: 20px;
+    --section-4-para-Text-size: 20px;
     --section-3-names-text-size: 22px;
     --section-3-small-heading-size: 32px;
     --sections-light-text-size: 32px;
+    --section-4-light-text-size: 32px;
+    --section-4-circle-numbers-text-size: 22px;
     --quotationText-size: 120px;
     --NamesText-size: 16px;
   }
@@ -149,9 +171,14 @@
     --sections-para-size: 20px;
     --sections-para-line-height: 32px;
 
+    --section-4-para-Text-size: 16px;
+    --section-4-para-Text-line-height: 24px;
+
     --section-3-names-text-size: 20px;
     --section-3-small-heading-size: 26px;
     --sections-light-text-size: 32px;
+    --section-4-light-text-size: 22px;
+    --section-4-circle-numbers-text-size: 16px;
     --quotationText-size: 105px;
     --NamesText-size: 16px;
     --NamesText-letter-spacing: 5%;
@@ -175,9 +202,13 @@
 .section-3-names-text-unselected { font-family: var(--font-heading); font-size: var(--section-3-names-text-size); font-weight: var(--section-3-names-text-weight); line-height: var(--section-3-names-text-line-height); letter-spacing: var(--section-3-names-text-letter-spacing); font-style: normal; color: rgba(255, 255, 255, 0.50);}
 .section-3-small-heading { font-family: var(--font-heading); font-size: var(--section-3-small-heading-size); font-weight: var(--section-3-small-heading-weight); line-height: var(--section-3-small-heading-line-height); letter-spacing: var(--section-3-small-heading-letter-spacing); font-style: normal; color: var(--color-text); }
 .sections-paragraph-text { font-family: var(--font-heading); font-size: var(--sections-para-size); font-weight: var(--sections-para-weight); line-height: var(--sections-para-line-height); letter-spacing: var(--sections-para-letter-spacing); font-style: normal; color: var(--color-text); }
+.section-4-paragraph-text { font-family: var(--font-heading); font-size: var(--section-4-para-Text-size); font-weight: var(--section-4-para-Text-weight); line-height: var(--section-4-para-Text-line-height); letter-spacing: var(--section-4-para-Text-letter-spacing); font-style: normal; color: var(--color-text); }
 .sections-light-text { font-family: var(--font-heading); font-size: var(--sections-light-text-size); font-weight: var(--sections-light-text-weight); line-height: var(--sections-light-text-line-height); letter-spacing: var(--sections-light-text-letter-spacing); font-style: normal; color: var(--color-text); text-align: center; }
+.section-4-light-text { font-family: var(--font-heading); font-size: var(--section-4-light-text-size); font-weight: var(--sections-light-text-weight); line-height: var(--sections-light-text-line-height); letter-spacing: var(--sections-light-text-letter-spacing); font-style: normal; color: var(--color-text); text-align: center; }
+.section-4-circle-numbers-text { font-family: var(--font-heading); font-size: var(--section-4-circle-numbers-text-size); font-weight: var(--sections-light-text-weight); line-height: var(--sections-light-text-line-height); letter-spacing: var(--sections-light-text-letter-spacing); font-style: normal; color: var(--color-text); text-align: center; }
 .quotationText { color: var(--color-text); font-family: var(--quotationText-font-family); font-size: var(--quotationText-size); font-style: var(--quotationText-style); font-weight: var(--quotationText-weight); line-height: var(--quotationText-line-height); }
 .NamesText { color: var(--color-text); font-family: var(--font-heading); font-size: var(--NamesText-size); font-style: var(--NamesText-style); font-weight: var(--NamesText-weight); line-height: var(--NamesText-line-height); letter-spacing: var(--NamesText-letter-spacing); }
+.ScrollText { color: var(--color-text); font-family: var(--font-heading); font-size: var(--ScrollText-size); font-weight: var(--ScrollText-weight); line-height: var(--ScrollText-line-height); letter-spacing: var(--ScrollText-letter-spacing); }
 
 .btn {
   font-size: var(--btn-text-size);
