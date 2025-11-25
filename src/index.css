@@ -122,7 +122,7 @@ html, body {
   :root {
     --h1-size: 54px;
     --h2-size: 48px;
-    --h3-size: 42px;
+    --h3-size: 36px;
 
     --hero-top-text-size: 24px;
     --hero-p-normal-size: 20px;
@@ -153,7 +153,7 @@ html, body {
 
     --h2-size: 32px;
 
-    --h3-size: 32px;
+    --h3-size: 24px;
     --h3-line-height: 42px;
 
     --hero-top-text-size: 16px;
