@@ -6,6 +6,7 @@ import Hero from './sections/Hero';
 import InteractiveRegeneration from './sections/InteractiveRegeneration';
 import RegenerationTimeline from './sections/RegenerationTimeline';
 import Testimonials from './sections/Testimonials';
+import VisionaryGuarantee from './sections/VisionaryGuarantee';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
       <ClaridaDifference />
       <RegenerationTimeline />
       <ActivationTimeline />
+      <VisionaryGuarantee />
     </div>
   );
 }
