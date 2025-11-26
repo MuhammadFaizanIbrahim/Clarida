@@ -1,4 +1,5 @@
 import ClaridaScrollStore from "../sections/ClaridaScrollStore";
+import LifestyleVision from "../sections/LifestyleVision";
 import ScientificInnovation from "../sections/ScientificInnovation";
 
 
@@ -7,6 +8,7 @@ export default function Secondpage() {
     <>
       <ScientificInnovation />
       <ClaridaScrollStore />
+      <LifestyleVision />
     </>
   );
 }

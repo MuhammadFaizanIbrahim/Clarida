@@ -4,6 +4,8 @@ import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
 import Button from "../components/Button.jsx";
+import { useMediaQuery } from "react-responsive";
+
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -22,6 +24,7 @@ const ClaridaDifference = () => {
   const sectionRef = useRef(null);
   const imgRef = useRef(null);
   const textRef = useRef(null);
+  const isMobile = useMediaQuery({ maxWidth: 767 });
 
   useLayoutEffect(() => {
     const section = sectionRef.current;
@@ -44,10 +47,18 @@ const ClaridaDifference = () => {
       // ensure first frame is shown initially
       img.src = framePaths[0];
 
+      var scrollDistance;
+      if(isMobile){
+       scrollDistance = window.innerHeight * 1; 
+      }
+      else{
+       scrollDistance = window.innerHeight * 1.5;
+      }
+
       ScrollTrigger.create({
         trigger: section,
         start: "top top",
-        end: "+=2200", // length of scrub – tweak if needed
+        end: "+=" + scrollDistance,
         scrub: 0.6,
         pin: true,
         anticipatePin: 1,

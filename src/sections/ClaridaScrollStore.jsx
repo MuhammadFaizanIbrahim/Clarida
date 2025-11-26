@@ -26,7 +26,7 @@ const ClaridaScrollStore = () => {
       <div className="absolute inset-0 bg-black/15 pointer-events-none z-10" />
 
       <EntranceAnimation
-        className="relative z-10 px-5 md:px-8 lg:px-20 py-8 md:py-5 lg:py-[2vw] 
+        className="relative z-10 px-5 md:px-8 lg:px-20 py-8 md:py-10 lg:py-[2vw] 
         flex flex-col md:flex-row items-center md:items-start justify-center md:justify-between w-full gap-2 text-center md:text-left"
         style={{
           background: `linear-gradient(180deg, rgba(0, 0, 0, 0.40) 0%, rgba(0, 0, 0, 0.00) 25%), linear-gradient(180deg, rgba(0, 0, 0, 0.00) 0%, rgba(0, 0, 0, 0.40) 100%) ${
