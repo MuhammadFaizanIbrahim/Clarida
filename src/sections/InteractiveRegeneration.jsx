@@ -12,7 +12,7 @@ const TOTAL_FRAMES = 360;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/InteractiveRegenerationSectionVideoFrames/frame_${index}.webp`;
+  return `/frames/InteractiveRegeneration/frame_${index}.webp`;
 });
 
 // key frames where each step should peak

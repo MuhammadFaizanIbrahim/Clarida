@@ -13,7 +13,7 @@ const TOTAL_FRAMES = 61;
 // build frame paths: frame_00001.webp ... frame_00061.webp
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/ClaridaDifferenceSectionVideoFrames/frame_${index}.webp`;
+  return `/frames/ClaridaDifference/frame_${index}.webp`;
 });
 
 const ClaridaDifference = () => {

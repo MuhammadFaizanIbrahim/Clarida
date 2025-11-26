@@ -1,6 +1,7 @@
 import './App.css'
 import ActivationTimeline from './sections/ActivationTimeline';
 import ClaridaDifference from './sections/ClaridaDifference';
+import GlobalCommunityImpact from './sections/GlobalCommunityImpact';
 import Header from './sections/Header';
 import Hero from './sections/Hero';
 import InteractiveRegeneration from './sections/InteractiveRegeneration';
@@ -19,6 +20,7 @@ function App() {
       <RegenerationTimeline />
       <ActivationTimeline />
       <VisionaryGuarantee />
+      <GlobalCommunityImpact />
     </div>
   );
 }
