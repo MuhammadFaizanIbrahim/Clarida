@@ -14,7 +14,7 @@ function App() {
           <Route path="/" element={<Homepage />} />
           <Route path="/store" element={<Secondpage />} />
         </Routes>
-        {/* <Footer /> */}
+        <Footer />
       </Router>
     </div>
   );
