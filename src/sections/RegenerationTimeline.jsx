@@ -1,5 +1,11 @@
 // RegeneratonTimeline.jsx
-import React, { useLayoutEffect, useRef, useState, useMemo } from "react";
+import React, {
+  useLayoutEffect,
+  useRef,
+  useState,
+  useMemo,
+  useEffect,         // ⬅️ added
+} from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useMediaQuery } from "react-responsive";
@@ -151,6 +157,169 @@ const RegenerationTimeline = () => {
     return result;
   }, [isMobile]);
 
+  // ---------- 🔊 AUDIO STATE / REFS (same pattern as other sections) ----------
+  const audioRef = useRef(null);
+  const fadeIntervalRef = useRef(null);
+
+  const [isInView, setIsInView] = useState(false);
+  const [isAudioOn, setIsAudioOn] = useState(false);
+
+  const isInViewRef = useRef(false);
+  const isAudioOnRef = useRef(false);
+
+  const clearFadeInterval = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+  };
+
+  const fadeTo = (audio, targetVolume, durationMs) => {
+    if (!audio) return;
+
+    clearFadeInterval();
+
+    if (targetVolume === 0 && audio.paused) {
+      audio.volume = 1;
+      return;
+    }
+
+    const startVolume =
+      typeof audio.volume === "number" ? audio.volume : targetVolume > 0 ? 0 : 1;
+    const totalSteps = Math.max(Math.round(durationMs / 50), 1);
+    let step = 0;
+    const volumeDiff = targetVolume - startVolume;
+
+    if (targetVolume > 0 && audio.paused) {
+      audio.loop = true;
+      audio
+        .play()
+        .catch(() => {
+          // autoplay blocked – ignore
+        });
+    }
+
+    if (durationMs <= 0) {
+      audio.volume = targetVolume;
+      if (targetVolume === 0) {
+        audio.pause();
+        audio.volume = 1;
+      }
+      return;
+    }
+
+    fadeIntervalRef.current = setInterval(() => {
+      const shouldPlayNow = isInViewRef.current && isAudioOnRef.current;
+
+      if (targetVolume > 0 && !shouldPlayNow) {
+        clearFadeInterval();
+        audio.pause();
+        audio.volume = 1;
+        return;
+      }
+
+      step += 1;
+      const t = Math.min(step / totalSteps, 1);
+      const nextVolume = startVolume + volumeDiff * t;
+      audio.volume = Math.min(Math.max(nextVolume, 0), 1);
+
+      if (t >= 1) {
+        clearFadeInterval();
+        if (targetVolume === 0) {
+          audio.pause();
+          audio.volume = 1;
+        }
+      }
+    }, 50);
+  };
+
+  // initial sync with global flag
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.__claridaAudioOn === "boolean"
+    ) {
+      const globalOn = window.__claridaAudioOn;
+      setIsAudioOn(globalOn);
+      isAudioOnRef.current = globalOn;
+    }
+  }, []);
+
+  // center-based visibility like Hero / Interactive
+  useEffect(() => {
+    const handleScroll = () => {
+      const el = sectionRef.current;
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+
+      const center = rect.top + rect.height / 2;
+      const inView = center > vh * 0.15 && center < vh * 0.85;
+
+      setIsInView(inView);
+      isInViewRef.current = inView;
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, []);
+
+  // listen to header toggle
+  useEffect(() => {
+    const handleAudioToggle = (e) => {
+      const { isOn } = e.detail || {};
+      const nextState = !!isOn;
+
+      if (typeof window !== "undefined") {
+        window.__claridaAudioOn = nextState;
+      }
+
+      setIsAudioOn(nextState);
+      isAudioOnRef.current = nextState;
+    };
+
+    window.addEventListener("clarida-audio-toggle", handleAudioToggle);
+    return () => {
+      window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
+    };
+  }, []);
+
+  // single source of truth for play/pause
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const shouldPlay = isInView && isAudioOn;
+    isInViewRef.current = isInView;
+    isAudioOnRef.current = isAudioOn;
+
+    if (shouldPlay) {
+      fadeTo(audio, 1, 600);
+    } else {
+      fadeTo(audio, 0, 800);
+    }
+  }, [isInView, isAudioOn]);
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearFadeInterval();
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.volume = 1;
+      }
+    };
+  }, []);
+
+  // ---------- EXISTING GSAP / SCROLL LOGIC (unchanged) ----------
   useLayoutEffect(() => {
     const section = sectionRef.current;
     const track = trackRef.current;
@@ -192,33 +361,25 @@ const RegenerationTimeline = () => {
               setStepIndex(clampedStep);
             }
 
-            // ------- NEW: fade cards based on viewport position -------
-            const trackX = gsap.getProperty(track, "x"); // current horizontal shift in px
+            // ------- fade cards based on viewport position -------
+            const trackX = gsap.getProperty(track, "x");
             const vw = window.innerWidth;
             const centerX = vw / 2;
-
-            // inner zone around center where card stays fully visible
-            const innerZone = 0.2; // 20% of half-width = central 40% of screen
+            const innerZone = 0.2;
 
             cardRefs.current.forEach((el, idx) => {
               if (!el) return;
 
-              // card center in viewport coordinates
-              const cardCenter =
-                idx * vw + centerX + trackX; // because each card is 100vw wide
-
+              const cardCenter = idx * vw + centerX + trackX;
               const distanceFromCenter = Math.abs(cardCenter - centerX);
-              const normalized = distanceFromCenter / centerX; // 0 at center, 1 at edges, >1 offscreen
+              const normalized = distanceFromCenter / centerX;
 
               let opacity;
               if (normalized <= innerZone) {
-                // fully visible in the central band
                 opacity = 1;
               } else if (normalized >= 1) {
-                // completely outside viewport
                 opacity = 0;
               } else {
-                // fade from 1 → 0 between innerZone and the edges
                 const localT = (normalized - innerZone) / (1 - innerZone);
                 opacity = 1 - localT;
               }
@@ -263,6 +424,14 @@ const RegenerationTimeline = () => {
           />
         ))}
       </div>
+
+      {/* 🔊 SECTION AUDIO (change src as needed) */}
+      <audio
+        ref={audioRef}
+        src="/audios/regenerationTimeline.mp3"
+        preload="auto"
+        loop
+      />
 
       {/* TOP TIME LINE – only for first tickCount steps */}
       <div
@@ -327,7 +496,7 @@ const RegenerationTimeline = () => {
                 ref={(el) => (cardRefs.current[index] = el)}
                 className="shrink-0 w-screen flex flex-col items-center justify-center text-center px-8"
                 style={{
-                  opacity: index === 0 ? 1 : 0, // starting state
+                  opacity: index === 0 ? 1 : 0,
                   transition: "opacity 0.2s linear",
                 }}
               >

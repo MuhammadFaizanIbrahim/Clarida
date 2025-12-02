@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Button from "../components/Button";
 import { useMediaQuery } from "react-responsive";
 import { motion } from "framer-motion";
@@ -10,8 +10,175 @@ import EntranceAnimation, {
 const ScientificInnovation = () => {
   const isMobile = useMediaQuery({ maxWidth: 767 }); // same as Tailwind's 'md' breakpoint
 
+  // 🔊 AUDIO + VISIBILITY STATE
+  const sectionRef = useRef(null);
+  const audioRef = useRef(null);
+  const fadeIntervalRef = useRef(null);
+
+  const [isInView, setIsInView] = useState(false);
+  const [isAudioOn, setIsAudioOn] = useState(false);
+
+  const isInViewRef = useRef(false);
+  const isAudioOnRef = useRef(false);
+
+  // ---------- FADE HELPER ----------
+  const clearFadeInterval = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+  };
+
+  const fadeTo = (audio, targetVolume, durationMs) => {
+    if (!audio) return;
+
+    clearFadeInterval();
+
+    if (targetVolume === 0 && audio.paused) {
+      audio.volume = 1;
+      return;
+    }
+
+    const startVolume =
+      typeof audio.volume === "number" ? audio.volume : targetVolume > 0 ? 0 : 1;
+    const totalSteps = Math.max(Math.round(durationMs / 50), 1);
+    let step = 0;
+    const volumeDiff = targetVolume - startVolume;
+
+    if (targetVolume > 0 && audio.paused) {
+      audio.loop = true;
+      audio.play().catch(() => {
+        // autoplay blocked – ignore
+      });
+    }
+
+    if (durationMs <= 0) {
+      audio.volume = targetVolume;
+      if (targetVolume === 0) {
+        audio.pause();
+        audio.volume = 1;
+      }
+      return;
+    }
+
+    fadeIntervalRef.current = setInterval(() => {
+      const shouldPlayNow = isInViewRef.current && isAudioOnRef.current;
+
+      // if during fade we moved out of view or audio turned off, stop
+      if (targetVolume > 0 && !shouldPlayNow) {
+        clearFadeInterval();
+        audio.pause();
+        audio.volume = 1;
+        return;
+      }
+
+      step += 1;
+      const t = Math.min(step / totalSteps, 1);
+      const nextVolume = startVolume + volumeDiff * t;
+      audio.volume = Math.min(Math.max(nextVolume, 0), 1);
+
+      if (t >= 1) {
+        clearFadeInterval();
+        if (targetVolume === 0) {
+          audio.pause();
+          audio.volume = 1;
+        }
+      }
+    }, 50);
+  };
+
+  // ---------- INITIAL SYNC WITH GLOBAL TOGGLE ----------
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.__claridaAudioOn === "boolean"
+    ) {
+      const globalOn = window.__claridaAudioOn;
+      setIsAudioOn(globalOn);
+      isAudioOnRef.current = globalOn;
+    }
+  }, []);
+
+  // ---------- SCROLL VISIBILITY (CENTER-BASED) ----------
+  useEffect(() => {
+    const handleScroll = () => {
+      const el = sectionRef.current;
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+
+      const center = rect.top + rect.height / 2;
+      const inView = center > vh * 0.15 && center < vh * 0.85;
+
+      setIsInView(inView);
+      isInViewRef.current = inView;
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, []);
+
+  // ---------- LISTEN FOR HEADER AUDIO TOGGLE ----------
+  useEffect(() => {
+    const handleAudioToggle = (e) => {
+      const { isOn } = e.detail || {};
+      const nextState = !!isOn;
+
+      if (typeof window !== "undefined") {
+        window.__claridaAudioOn = nextState;
+      }
+
+      setIsAudioOn(nextState);
+      isAudioOnRef.current = nextState;
+    };
+
+    window.addEventListener("clarida-audio-toggle", handleAudioToggle);
+    return () => {
+      window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
+    };
+  }, []);
+
+  // ---------- SINGLE SOURCE OF TRUTH FOR PLAY / PAUSE ----------
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    isInViewRef.current = isInView;
+    isAudioOnRef.current = isAudioOn;
+
+    const shouldPlay = isInView && isAudioOn;
+
+    if (shouldPlay) {
+      fadeTo(audio, 1, 600);
+    } else {
+      fadeTo(audio, 0, 800);
+    }
+  }, [isInView, isAudioOn]);
+
+  // ---------- CLEANUP ON UNMOUNT ----------
+  useEffect(() => {
+    return () => {
+      clearFadeInterval();
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.volume = 1;
+      }
+    };
+  }, []);
+
   return (
-    <section className="relative h-screen flex items-end justify-between text-white overflow-hidden">
+    <section
+      ref={sectionRef}
+      className="relative h-screen flex items-end justify-between text-white overflow-hidden"
+    >
       {/* Background Video */}
       <video
         className="absolute inset-0 w-full h-full object-cover"
@@ -22,6 +189,14 @@ const ScientificInnovation = () => {
         muted
         playsInline
       ></video>
+
+      {/* 🔊 SECTION AUDIO */}
+      <audio
+        ref={audioRef}
+        src="/audios/scientific.mp3" // <-- put your actual audio file here
+        preload="auto"
+        loop
+      />
 
       <div className="absolute inset-0 bg-black/15 pointer-events-none z-10" />
 

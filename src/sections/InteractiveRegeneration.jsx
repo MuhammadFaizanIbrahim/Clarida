@@ -1,5 +1,5 @@
 // InteractiveRegenerationFrames.jsx
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef, useEffect, useState } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
@@ -38,7 +38,6 @@ const storySteps = [
     showButton: true,
   },
 ];
-  
 
 const InteractiveRegeneration = () => {
   useLenisSmoothScroll();
@@ -49,41 +48,208 @@ const InteractiveRegeneration = () => {
   const timeBarRef = useRef(null);
   const tickRefs = useRef([]);
 
+  // ---------- AUDIO STATE / REFS ----------
+  const audioRef = useRef(null);
+  const fadeIntervalRef = useRef(null);
+
+  const [isInView, setIsInView] = useState(false);
+  const [isAudioOn, setIsAudioOn] = useState(false);
+
+  const isInViewRef = useRef(false);
+  const isAudioOnRef = useRef(false);
+
+  // ---------- FADE HELPER (same pattern as Hero) ----------
+  const clearFadeInterval = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+  };
+
+  const fadeTo = (audio, targetVolume, durationMs) => {
+    if (!audio) return;
+
+    clearFadeInterval();
+
+    if (targetVolume === 0 && audio.paused) {
+      audio.volume = 1;
+      return;
+    }
+
+    const startVolume =
+      typeof audio.volume === "number" ? audio.volume : targetVolume > 0 ? 0 : 1;
+    const totalSteps = Math.max(Math.round(durationMs / 50), 1); // ~20 FPS
+    let step = 0;
+    const volumeDiff = targetVolume - startVolume;
+
+    // if fading IN, ensure playback starts
+    if (targetVolume > 0 && audio.paused) {
+      audio.loop = true;
+      audio
+        .play()
+        .catch(() => {
+          // autoplay blocked – ignore
+        });
+    }
+
+    // instant jump
+    if (durationMs <= 0) {
+      audio.volume = targetVolume;
+      if (targetVolume === 0) {
+        audio.pause();
+        audio.volume = 1;
+      }
+      return;
+    }
+
+    fadeIntervalRef.current = setInterval(() => {
+      const shouldPlayNow = isInViewRef.current && isAudioOnRef.current;
+
+      // if we were fading in but conditions are no longer valid
+      if (targetVolume > 0 && !shouldPlayNow) {
+        clearFadeInterval();
+        audio.pause();
+        audio.volume = 1;
+        return;
+      }
+
+      step += 1;
+      const t = Math.min(step / totalSteps, 1);
+      const nextVolume = startVolume + volumeDiff * t;
+      audio.volume = Math.min(Math.max(nextVolume, 0), 1);
+
+      if (t >= 1) {
+        clearFadeInterval();
+        if (targetVolume === 0) {
+          audio.pause();
+          audio.volume = 1;
+        }
+      }
+    }, 50);
+  };
+
+  // ---------- INITIAL SYNC WITH GLOBAL AUDIO FLAG ----------
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.__claridaAudioOn === "boolean"
+    ) {
+      const globalOn = window.__claridaAudioOn;
+      setIsAudioOn(globalOn);
+      isAudioOnRef.current = globalOn;
+    }
+  }, []);
+
+  // ---------- SCROLL VISIBILITY (center-based like Hero) ----------
+  useEffect(() => {
+    const handleScroll = () => {
+      const el = sectionRef.current;
+      if (!el) return;
+
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+
+      const center = rect.top + rect.height / 2;
+      const inView = center > vh * 0.15 && center < vh * 0.85;
+
+      setIsInView(inView);
+      isInViewRef.current = inView;
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, []);
+
+  // ---------- LISTEN TO GLOBAL HEADER AUDIO TOGGLE ----------
+  useEffect(() => {
+    const handleAudioToggle = (e) => {
+      const { isOn } = e.detail || {};
+      const nextState = !!isOn;
+
+      if (typeof window !== "undefined") {
+        window.__claridaAudioOn = nextState;
+      }
+
+      setIsAudioOn(nextState);
+      isAudioOnRef.current = nextState;
+    };
+
+    window.addEventListener("clarida-audio-toggle", handleAudioToggle);
+    return () => {
+      window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
+    };
+  }, []);
+
+  // ---------- SINGLE SOURCE OF TRUTH FOR PLAY / PAUSE ----------
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const shouldPlay = isInView && isAudioOn;
+    isInViewRef.current = isInView;
+    isAudioOnRef.current = isAudioOn;
+
+    if (shouldPlay) {
+      fadeTo(audio, 1, 600); // fade in
+    } else {
+      fadeTo(audio, 0, 800); // smooth fade out
+    }
+  }, [isInView, isAudioOn]);
+
+  // ---------- CLEANUP ON UNMOUNT ----------
+  useEffect(() => {
+    return () => {
+      clearFadeInterval();
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.volume = 1;
+      }
+    };
+  }, []);
+
+  // ----------------- GSAP FRAMES / TIMELINE -----------------
   useLayoutEffect(() => {
     const section = sectionRef.current;
     const img = imgRef.current;
     const timeBar = timeBarRef.current;
-    const totalScroll = timeBar.scrollWidth - window.innerWidth;
+    const totalScroll = timeBar?.scrollWidth - window.innerWidth;
 
     if (!section || !img || !timeBar) return;
-  
+
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
-  
+
     if (prefersReducedMotion) {
       img.src = framePaths[0];
-  
+
       storySteps.forEach((_, i) => {
         const el = textRefs.current[i];
         if (!el) return;
         gsap.set(el, { opacity: i === storySteps.length - 1 ? 1 : 0, y: 0 });
       });
-  
+
       gsap.set(timeBar, { opacity: 0 });
       return;
     }
-  
+
     let ctx = gsap.context(() => {
       img.src = framePaths[0];
-  
+
       const lastFrameIndex = TOTAL_FRAMES - 1;
       const vw = window.innerWidth;
       const segmentShift = vw; // how much to move timeBar so the next tick centers
-  
+
       // 🔹 initial state: bar off-screen right + invisible
       gsap.set(timeBar, { x: vw, opacity: 0 });
-  
+
       ScrollTrigger.create({
         trigger: section,
         start: "top top",
@@ -93,7 +259,7 @@ const InteractiveRegeneration = () => {
         anticipatePin: 1,
         onUpdate: (self) => {
           const progress = self.progress; // 0 → 1
-  
+
           // ----- FRAME SCRUB -----
           const frameIndex = Math.min(
             lastFrameIndex,
@@ -103,15 +269,16 @@ const InteractiveRegeneration = () => {
           if (img.src !== window.location.origin + nextSrc) {
             img.src = nextSrc;
           }
-  
+
           // ----- TIMELINE SLIDING IN FROM RIGHT -----
           let barX;
-          const lastKeyFrame = STEP_KEY_FRAMES[STEP_KEY_FRAMES.length - 1];
-  
+          const lastKeyFrame =
+            STEP_KEY_FRAMES[STEP_KEY_FRAMES.length - 1];
+
           if (frameIndex < FIRST_STORY_FRAME) {
             // slide in from off-screen right → center BY frame 80
             const t = frameIndex / FIRST_STORY_FRAME; // 0 → 1
-            barX = gsap.utils.interpolate(vw, 0, t);  // x: vw → 0
+            barX = gsap.utils.interpolate(vw, 0, t); // x: vw → 0
           } else if (frameIndex >= lastKeyFrame) {
             // clamp to last tick centered
             barX = -segmentShift * (STEP_KEY_FRAMES.length - 1);
@@ -127,58 +294,59 @@ const InteractiveRegeneration = () => {
                 break;
               }
             }
-  
+
             const startFrame = STEP_KEY_FRAMES[segIndex];
             const endFrame = STEP_KEY_FRAMES[segIndex + 1];
             const localT =
               (frameIndex - startFrame) / (endFrame - startFrame || 1);
-  
+
             const startX = -segmentShift * segIndex;
             const endX = -segmentShift * (segIndex + 1);
             barX = gsap.utils.interpolate(startX, endX, localT);
           }
-  
+
           // 🔹 fade in the whole timeline only near frame 80
           let barOpacity = 0;
           const FADE_IN_START = FIRST_STORY_FRAME - 15; // start fading a bit before 80
-          const FADE_IN_END   = FIRST_STORY_FRAME + 5;  // fully visible shortly after 80
-  
+          const FADE_IN_END = FIRST_STORY_FRAME + 5; // fully visible shortly after 80
+
           if (frameIndex <= FADE_IN_START) {
             barOpacity = 0;
           } else if (frameIndex >= FADE_IN_END) {
             barOpacity = 1;
           } else {
             const t =
-              (frameIndex - FADE_IN_START) / (FADE_IN_END - FADE_IN_START || 1);
+              (frameIndex - FADE_IN_START) /
+              (FADE_IN_END - FADE_IN_START || 1);
             barOpacity = t;
           }
-  
+
           gsap.set(timeBar, {
             x: barX,
             opacity: barOpacity,
           });
-  
+
           // ----- TEXT + TICK FOCUS AT SPECIFIC FRAMES -----
           const fadeFrames = 20; // width of fade around each key frame
           const maxY = 16; // px movement for text
-  
+
           storySteps.forEach((_, i) => {
             const textEl = textRefs.current[i];
             const tickEl = tickRefs.current[i];
             if (!textEl || !tickEl) return;
-  
+
             const kf = STEP_KEY_FRAMES[i];
             const distance = Math.abs(frameIndex - kf);
-  
+
             let opacity = 0;
             if (distance <= fadeFrames) {
               opacity = 1 - distance / fadeFrames;
             }
-  
+
             const y = maxY * (1 - opacity); // 16 → 0 → 16
-  
+
             gsap.set(textEl, { opacity, y });
-  
+
             // ticks: no fade, just scale highlight
             gsap.set(tickEl, {
               opacity: 1,
@@ -188,10 +356,9 @@ const InteractiveRegeneration = () => {
         },
       });
     }, section);
-  
+
     return () => ctx.revert();
   }, []);
-  
 
   // TIMELINE GEOMETRY – same style as RegenerationTimeline but no labels
   const tickCount = storySteps.length;
@@ -202,7 +369,7 @@ const InteractiveRegeneration = () => {
 
   const getTickLeft = (index) => {
     const w = window.innerWidth;
-  
+
     if (w < 480) {
       // small mobile
       return `calc(65vw + ${index * tickSpacingVW}vw)`;
@@ -215,7 +382,7 @@ const InteractiveRegeneration = () => {
       // tablet
       return `calc(55.8vw + ${index * tickSpacingVW}vw)`;
     }
-  
+
     // desktop
     return `calc(54.2vw + ${index * tickSpacingVW}vw)`;
   };
@@ -231,6 +398,14 @@ const InteractiveRegeneration = () => {
         src={framePaths[0]}
         alt="Zebrafish regeneration sequence"
         className="h-full w-full object-cover"
+      />
+
+      {/* 🔊 SECTION AUDIO (change the src to your actual file) */}
+      <audio
+        ref={audioRef}
+        src="/audios/interactiveRegeneration.mp3"
+        preload="auto"
+        loop
       />
 
       {/* Dark overlay for readability */}
@@ -302,7 +477,7 @@ const InteractiveRegeneration = () => {
               style={{
                 left: getTickLeft(index),
                 transform: "translateY(-50%)",
-                opacity: 1, // no fade on ticks
+                opacity: 1,
                 transition: "transform 0.15s linear",
               }}
             >
