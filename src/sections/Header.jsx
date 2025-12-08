@@ -185,7 +185,7 @@ const handleAudioToggle = () => {
 
           {/* AUDIO TOGGLE BUTTON */}
           <img
-            src={isAudioOn ? "icons/audioOffIcon.svg" : "icons/audioOnIcon.svg"}
+            src={isAudioOn ? "icons/audioOnIcon.svg" : "icons/audioOffIcon.svg"}
             alt="Audio On/Off"
             onClick={handleAudioToggle}
             className="border rounded-full w-8 h-8 md:w-9 md:h-9 lg:w-[39.994px] lg:h-[39.994px] p-[5px] hover:bg-[rgba(255,255,255,0.25)] cursor-pointer"
