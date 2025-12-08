@@ -1,11 +1,10 @@
 // ClaridaDifferenceFrames.jsx
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef, useEffect } from "react"; // ⬅️ added useEffect
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
 import Button from "../components/Button.jsx";
 import { useMediaQuery } from "react-responsive";
-
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -25,6 +24,20 @@ const ClaridaDifference = () => {
   const imgRef = useRef(null);
   const textRef = useRef(null);
   const isMobile = useMediaQuery({ maxWidth: 767 });
+
+  // 🔹 NEW: cache preloaded images + last frame index
+  const preloadedFramesRef = useRef([]);
+  const lastFrameIndexRef = useRef(-1);
+
+  // 🔹 NEW: preload all frames once
+  useEffect(() => {
+    const images = framePaths.map((src) => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    });
+    preloadedFramesRef.current = images;
+  }, []);
 
   useLayoutEffect(() => {
     const section = sectionRef.current;
@@ -47,12 +60,11 @@ const ClaridaDifference = () => {
       // ensure first frame is shown initially
       img.src = framePaths[0];
 
-      var scrollDistance;
-      if(isMobile){
-       scrollDistance = window.innerHeight * 1; 
-      }
-      else{
-       scrollDistance = window.innerHeight * 1.5;
+      let scrollDistance;
+      if (isMobile) {
+        scrollDistance = window.innerHeight * 1;
+      } else {
+        scrollDistance = window.innerHeight * 1.5;
       }
 
       ScrollTrigger.create({
@@ -65,17 +77,24 @@ const ClaridaDifference = () => {
         onUpdate: (self) => {
           const progress = self.progress; // 0 → 1
 
-          // ----- FRAME SCRUB -----
+          // ----- FRAME SCRUB (optimized) -----
           const frameIndex = Math.min(
             TOTAL_FRAMES - 1,
             Math.floor(progress * (TOTAL_FRAMES - 1))
           );
-          const nextSrc = framePaths[frameIndex];
-          if (img.src !== window.location.origin + nextSrc) {
-            img.src = nextSrc;
+
+          if (frameIndex !== lastFrameIndexRef.current) {
+            lastFrameIndexRef.current = frameIndex;
+
+            const preloaded = preloadedFramesRef.current[frameIndex];
+            const nextSrc = preloaded?.src || framePaths[frameIndex];
+
+            if (img.src !== nextSrc) {
+              img.src = nextSrc;
+            }
           }
 
-          const FADE_END = 0.65; // 👈 now text becomes sharp at 55% scroll
+          const FADE_END = 0.65; // text becomes sharp at 65% scroll
 
           let finalT = 0;
           if (progress <= FADE_END) {
@@ -97,7 +116,7 @@ const ClaridaDifference = () => {
     }, section);
 
     return () => ctx.revert();
-  }, []);
+  }, [isMobile]);
 
   return (
     <section
@@ -118,10 +137,10 @@ const ClaridaDifference = () => {
       <div
         ref={textRef}
         className="
-    absolute inset-0 
-    flex flex-col items-center justify-center
-    text-center px-6 gap-3 md:gap-8 z-20
-  "
+          absolute inset-0 
+          flex flex-col items-center justify-center
+          text-center px-6 gap-3 md:gap-8 z-20
+        "
         style={{
           opacity: 0,
           filter: "blur(14px)",
@@ -138,7 +157,7 @@ const ClaridaDifference = () => {
           </span>
         </h2>
 
-        {/* Button (clickable even when overlay is blurred) */}
+        {/* Button */}
         <Button
           width="w-[200px] md:w-[200px] lg:w-[12.365vw]"
           height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
