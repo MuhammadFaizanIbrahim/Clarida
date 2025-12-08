@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef, useEffect } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
@@ -24,6 +24,20 @@ const LifestyleVision = () => {
   const textRef = useRef(null);
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
+  // 🔹 NEW: caches for performance
+  const preloadedFramesRef = useRef([]);
+  const lastFrameIndexRef = useRef(-1);
+
+  // 🔹 NEW: preload all frames once
+  useEffect(() => {
+    const images = framePaths.map((src) => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    });
+    preloadedFramesRef.current = images;
+  }, []);
+
   useLayoutEffect(() => {
     const section = sectionRef.current;
     const img = imgRef.current;
@@ -46,18 +60,17 @@ const LifestyleVision = () => {
 
       const maxBlur = 14;
 
-      // 🔹 IMPORTANT: start in the same state as progress = 0
+      // 🔹 start in the same state as progress = 0
       gsap.set(text, {
         opacity: 0.1,
         filter: `blur(${maxBlur}px)`,
       });
 
-      var scrollDistance;
-      if(isMobile){
-       scrollDistance = window.innerHeight * 1;
-      }
-      else{
-       scrollDistance = window.innerHeight * 1.5;
+      let scrollDistance;
+      if (isMobile) {
+        scrollDistance = window.innerHeight * 1;
+      } else {
+        scrollDistance = window.innerHeight * 1.5;
       }
 
       ScrollTrigger.create({
@@ -70,14 +83,21 @@ const LifestyleVision = () => {
         onUpdate: (self) => {
           const progress = self.progress; // 0 → 1
 
-          // ----- FRAME SCRUB -----
+          // ----- FRAME SCRUB (optimized) -----
           const frameIndex = Math.min(
             TOTAL_FRAMES - 1,
             Math.floor(progress * (TOTAL_FRAMES - 1))
           );
-          const nextSrc = framePaths[frameIndex];
-          if (img.src !== window.location.origin + nextSrc) {
-            img.src = nextSrc;
+
+          if (frameIndex !== lastFrameIndexRef.current) {
+            lastFrameIndexRef.current = frameIndex;
+
+            const preloaded = preloadedFramesRef.current[frameIndex];
+            const nextSrc = preloaded?.src || framePaths[frameIndex];
+
+            if (img.src !== nextSrc) {
+              img.src = nextSrc;
+            }
           }
 
           const FADE_END = 0.65;
@@ -89,8 +109,8 @@ const LifestyleVision = () => {
             finalT = 1;
           }
 
-          const blur = maxBlur * (1 - finalT);     // 14 → 0
-          const opacity = 0.1 + 0.9 * finalT;      // 0.1 → 1
+          const blur = maxBlur * (1 - finalT); // 14 → 0
+          const opacity = 0.1 + 0.9 * finalT; // 0.1 → 1
 
           gsap.set(text, {
             opacity,
@@ -101,7 +121,7 @@ const LifestyleVision = () => {
     }, section);
 
     return () => ctx.revert();
-  }, []);
+  }, [isMobile]);
 
   return (
     <section
@@ -129,9 +149,12 @@ const LifestyleVision = () => {
       >
         {/* Left Side */}
         <div className="w-[362px] md:w-full flex flex-col gap-3 md:gap-6 items-center md:items-start">
-        <h1 className="h2-text text-left">
-           Clarida Isn’t Just About<span className="h2-text-bold"><br /> Vision. </span>
-           It’s About <span className="h2-text-bold">Life</span>
+          <h1 className="h2-text text-left">
+            Clarida Isn’t Just About
+            <span className="h2-text-bold">
+              <br /> Vision.{" "}
+            </span>
+            It’s About <span className="h2-text-bold">Life</span>
           </h1>
 
           {!isMobile && (
