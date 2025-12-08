@@ -1,11 +1,10 @@
 // ClaridaDifferenceFrames.jsx
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState, useEffect } from "react"; // ⬅️ added useEffect
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
 import Button from "../components/Button.jsx";
 import { useMediaQuery } from "react-responsive";
-
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -26,6 +25,20 @@ const GlobalCommunityImpact = () => {
 
   const [isOpen, setIsOpen] = useState(false); // accordion state
 
+  // 🔹 NEW: cache for preloaded frames + last frame index
+  const preloadedFramesRef = useRef([]);
+  const lastFrameIndexRef = useRef(-1);
+
+  // 🔹 NEW: preload all frames once
+  useEffect(() => {
+    const images = framePaths.map((src) => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    });
+    preloadedFramesRef.current = images;
+  }, []);
+
   useLayoutEffect(() => {
     const section = sectionRef.current;
     const img = imgRef.current;
@@ -45,12 +58,11 @@ const GlobalCommunityImpact = () => {
     let ctx = gsap.context(() => {
       img.src = framePaths[0];
 
-      var scrollDistance;
-      if(isMobile){
-       scrollDistance = window.innerHeight * 1; 
-      }
-      else{
-       scrollDistance = window.innerHeight * 1.5; 
+      let scrollDistance;
+      if (isMobile) {
+        scrollDistance = window.innerHeight * 1;
+      } else {
+        scrollDistance = window.innerHeight * 1.5;
       }
 
       ScrollTrigger.create({
@@ -63,13 +75,21 @@ const GlobalCommunityImpact = () => {
         onUpdate: (self) => {
           const progress = self.progress;
 
+          // ----- FRAME SCRUB (optimized) -----
           const frameIndex = Math.min(
             TOTAL_FRAMES - 1,
             Math.floor(progress * (TOTAL_FRAMES - 1))
           );
-          const nextSrc = framePaths[frameIndex];
-          if (img.src !== window.location.origin + nextSrc) {
-            img.src = nextSrc;
+
+          if (frameIndex !== lastFrameIndexRef.current) {
+            lastFrameIndexRef.current = frameIndex;
+
+            const preloaded = preloadedFramesRef.current[frameIndex];
+            const nextSrc = preloaded?.src || framePaths[frameIndex];
+
+            if (img.src !== nextSrc) {
+              img.src = nextSrc;
+            }
           }
 
           const FADE_END = 0.65;
@@ -94,7 +114,7 @@ const GlobalCommunityImpact = () => {
     }, section);
 
     return () => ctx.revert();
-  }, []);
+  }, [isMobile]); // ⬅️ depend on isMobile like before
 
   return (
     <section ref={sectionRef} className="relative h-screen w-screen">
@@ -133,13 +153,13 @@ const GlobalCommunityImpact = () => {
           alt="Toggle Clarida details"
           onClick={() => setIsOpen((prev) => !prev)}
           className={`
-      border border-white rounded-full
-      w-6 h-6 lg:w-[25px] lg:h-[25px] mt-5 md:mt-0
-      p-[5px]
-      hover:bg-[rgba(255,255,255,0.25)]
-      cursor-pointer transition-transform duration-300
-      ${isOpen ? "rotate-180" : ""}
-    `}
+            border border-white rounded-full
+            w-6 h-6 lg:w-[25px] lg:h-[25px] mt-5 md:mt-0
+            p-[5px]
+            hover:bg-[rgba(255,255,255,0.25)]
+            cursor-pointer transition-transform duration-300
+            ${isOpen ? "rotate-180" : ""}
+          `}
         />
 
         {/* Accordion + Button group */}
@@ -147,17 +167,17 @@ const GlobalCommunityImpact = () => {
           {/* Accordion Content */}
           <div
             className="
-        w-full overflow-hidden
-        transition-all duration-500 ease-[cubic-bezier(0.19,1,0.22,1)]
-      "
+              w-full overflow-hidden
+              transition-all duration-500 ease-[cubic-bezier(0.19,1,0.22,1)]
+            "
             style={{ maxHeight: isOpen ? "320px" : "0px" }}
           >
             <div
               className={`
-          transition-opacity duration-300
-          text-center
-          ${isOpen ? "opacity-100" : "opacity-0"}
-        `}
+                transition-opacity duration-300
+                text-center
+                ${isOpen ? "opacity-100" : "opacity-0"}
+              `}
             >
               <p className="section-4-paragraph-text w-[350px] md:w-[600px] lg:w-[700px] 2xl:w-[950px]">
                 Clarida is more than a product or protocol. It’s a movement of
