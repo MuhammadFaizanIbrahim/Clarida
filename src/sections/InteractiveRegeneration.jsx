@@ -47,6 +47,9 @@ const InteractiveRegeneration = () => {
   const textRefs = useRef([]); // one ref per text step
   const timeBarRef = useRef(null);
   const tickRefs = useRef([]);
+  const preloadedFramesRef = useRef([]);
+  const lastFrameIndexRef = useRef(-1);
+
 
   // ---------- AUDIO STATE / REFS ----------
   const audioRef = useRef(null);
@@ -127,6 +130,16 @@ const InteractiveRegeneration = () => {
       }
     }, 50);
   };
+
+  useEffect(() => {
+    // Preload all frame images once
+    const images = framePaths.map((src) => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    });
+    preloadedFramesRef.current = images;
+  }, []);  
 
   // ---------- INITIAL SYNC WITH GLOBAL AUDIO FLAG ----------
   useEffect(() => {
@@ -261,14 +274,23 @@ const InteractiveRegeneration = () => {
           const progress = self.progress; // 0 → 1
 
           // ----- FRAME SCRUB -----
-          const frameIndex = Math.min(
-            lastFrameIndex,
-            Math.floor(progress * lastFrameIndex)
-          );
-          const nextSrc = framePaths[frameIndex];
-          if (img.src !== window.location.origin + nextSrc) {
+        const frameIndex = Math.min(
+          lastFrameIndex,
+          Math.floor(progress * lastFrameIndex)
+        );
+        
+        // Only update if the frame actually changed
+        if (frameIndex !== lastFrameIndexRef.current) {
+          lastFrameIndexRef.current = frameIndex;
+        
+          const preloaded = preloadedFramesRef.current[frameIndex];
+          const nextSrc = preloaded?.src || framePaths[frameIndex];
+        
+          if (img.src !== nextSrc) {
             img.src = nextSrc;
           }
+        }
+
 
           // ----- TIMELINE SLIDING IN FROM RIGHT -----
           let barX;
