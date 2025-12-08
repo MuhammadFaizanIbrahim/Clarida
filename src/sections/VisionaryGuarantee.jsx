@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from "react";
+import React, { useLayoutEffect, useRef, useEffect } from "react"; // ⬅️ added useEffect
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
@@ -19,10 +19,8 @@ const STEP_KEY_FRAMES = [10, 25, 37, 50, 60, 70, 80, 99];
 const FIRST_STORY_FRAME = STEP_KEY_FRAMES[0];
 
 // ----------------- TEXT STEPS -----------------
-// ----------------- TEXT STEPS -----------------
 const storySteps = [
   {
-    // “This isn’t about” / “supplements”
     content: (
       <>
         This isn’t about
@@ -32,7 +30,6 @@ const storySteps = [
     ),
   },
   {
-    // “It’s about / Rhythm, Signals & biology / reawakened”
     content: (
       <>
         It’s about
@@ -44,7 +41,6 @@ const storySteps = [
     ),
   },
   {
-    // “A protocol timed to your body’s own / intelligence”
     content: (
       <>
         A protocol timed to your body’s own
@@ -54,16 +50,15 @@ const storySteps = [
     ),
   },
   {
-    // “Rooted in circadian and / regenerative science”
     content: (
       <>
         Rooted in circadian and
-        <span className="section-5-text-bold"> regenerative</span><br /> science
+        <span className="section-5-text-bold"> regenerative</span>
+        <br /> science
       </>
     ),
   },
   {
-    // “And backed by a / promise”
     content: (
       <>
         And backed by a
@@ -73,7 +68,6 @@ const storySteps = [
     ),
   },
   {
-    // If you don’t feel the shift…
     content: (
       <>
         If you don’t feel the shift
@@ -89,7 +83,6 @@ const storySteps = [
     ),
   },
   {
-    // “Because real vision isn’t just what you see”
     content: <>Because real vision isn’t just what you see</>,
   },
   {
@@ -101,7 +94,7 @@ const storySteps = [
         <span className="section-5-text-bold">Or your money back</span>
       </div>
     ),
-  },  
+  },
 ];
 
 const VisionaryGuarantee = () => {
@@ -112,6 +105,20 @@ const VisionaryGuarantee = () => {
   const textRefs = useRef([]); // one ref per text step
   const timeBarRef = useRef(null);
   const tickRefs = useRef([]);
+
+  // 🔹 NEW: caches for performance
+  const preloadedFramesRef = useRef([]);
+  const lastFrameIndexRef = useRef(-1);
+
+  // 🔹 NEW: preload all frames once
+  useEffect(() => {
+    const images = framePaths.map((src) => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    });
+    preloadedFramesRef.current = images;
+  }, []);
 
   useLayoutEffect(() => {
     const section = sectionRef.current;
@@ -142,33 +149,40 @@ const VisionaryGuarantee = () => {
       const lastFrameIndex = TOTAL_FRAMES - 1;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const segmentShift = vw; // how much to move timeBar so the next tick centers
+      const segmentShift = vw;
 
       // initial state: bar off-screen right + invisible
       gsap.set(timeBar, { x: vw, opacity: 0 });
 
-      // 🔹 FIX: use a fixed scroll distance (e.g. 6 viewheights) instead of scrollWidth
+      // fixed scroll distance
       const totalScroll = vh * 4;
 
       ScrollTrigger.create({
         trigger: section,
         start: "top top",
         end: "+=" + totalScroll,
-        scrub: true, // tight lock to scroll
+        scrub: true,
         pin: true,
         anticipatePin: 0,
         invalidateOnRefresh: true,
         onUpdate: (self) => {
           const progress = self.progress; // 0 → 1
 
-          // ----- FRAME SCRUB -----
+          // ----- FRAME SCRUB (optimized) -----
           const frameIndex = Math.min(
             lastFrameIndex,
             Math.floor(progress * lastFrameIndex)
           );
-          const nextSrc = framePaths[frameIndex];
-          if (img.src !== window.location.origin + nextSrc) {
-            img.src = nextSrc;
+
+          if (frameIndex !== lastFrameIndexRef.current) {
+            lastFrameIndexRef.current = frameIndex;
+
+            const preloaded = preloadedFramesRef.current[frameIndex];
+            const nextSrc = preloaded?.src || framePaths[frameIndex];
+
+            if (img.src !== nextSrc) {
+              img.src = nextSrc;
+            }
           }
 
           // ----- TIMELINE SLIDING IN FROM RIGHT -----
@@ -176,14 +190,11 @@ const VisionaryGuarantee = () => {
           const lastKeyFrame = STEP_KEY_FRAMES[STEP_KEY_FRAMES.length - 1];
 
           if (frameIndex < FIRST_STORY_FRAME) {
-            // slide in from off-screen right → center by FIRST_STORY_FRAME
-            const t = frameIndex / FIRST_STORY_FRAME; // 0 → 1
-            barX = gsap.utils.interpolate(vw, 0, t); // x: vw → 0
+            const t = frameIndex / FIRST_STORY_FRAME;
+            barX = gsap.utils.interpolate(vw, 0, t);
           } else if (frameIndex >= lastKeyFrame) {
-            // clamp to last tick centered
             barX = -segmentShift * (STEP_KEY_FRAMES.length - 1);
           } else {
-            // between keyframes, move bar left step-by-step
             let segIndex = 0;
             for (let i = 0; i < STEP_KEY_FRAMES.length - 1; i++) {
               if (
@@ -227,10 +238,10 @@ const VisionaryGuarantee = () => {
           });
 
           // ----- TEXT + TICK FOCUS (ONLY ONE ACTIVE AT A TIME) -----
-          const fadeFrames = 8; // smaller = snappier
-          const maxY = 16; // px movement for text
+          const fadeFrames = 8;
+          const maxY = 16;
 
-          // 1) find closest keyframe to current frame
+          // 1) find closest keyframe
           let activeIndex = 0;
           let minDistance = Infinity;
           STEP_KEY_FRAMES.forEach((kf, i) => {
@@ -241,7 +252,7 @@ const VisionaryGuarantee = () => {
             }
           });
 
-          // 2) apply opacity only to that active index
+          // 2) apply opacity only to active index
           storySteps.forEach((_, i) => {
             const textEl = textRefs.current[i];
             const tickEl = tickRefs.current[i];
@@ -252,14 +263,13 @@ const VisionaryGuarantee = () => {
 
             let opacity = 0;
             if (i === activeIndex && distance <= fadeFrames) {
-              opacity = 1 - distance / fadeFrames; // fade in → 1 → fade out
+              opacity = 1 - distance / fadeFrames;
             }
 
-            const y = maxY * (1 - opacity); // move from slightly down → center → down
+            const y = maxY * (1 - opacity);
 
             gsap.set(textEl, { opacity, y, willChange: "transform, opacity" });
 
-            // ticks: always visible, but only active one scales
             gsap.set(tickEl, {
               opacity: 1,
               scale: i === activeIndex ? 1.1 : 1,
@@ -284,19 +294,15 @@ const VisionaryGuarantee = () => {
     const w = window.innerWidth;
 
     if (w < 480) {
-      // small mobile
       return `calc(65vw + ${index * tickSpacingVW}vw)`;
     }
     if (w < 768) {
-      // normal mobile
       return `calc(42.5vw + ${index * tickSpacingVW}vw)`;
     }
     if (w < 1024) {
-      // tablet
       return `calc(55.8vw + ${index * tickSpacingVW}vw)`;
     }
     if (w < 1500) {
-      // tablet
       return `calc(55.7vw + ${index * tickSpacingVW}vw)`;
     }
 
