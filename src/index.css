@@ -13,104 +13,104 @@ html, body {
   --font-heading: "Figtree", sans-serif;
   --font-body: "Figtree", sans-serif;
 
-  /* Typography sizes & weights */
-  --h1-size: 88px;
+  /* Typography sizes & weights (DESKTOP: 1920px base, sizes in vw) */
+  --h1-size: 4.583vw; /* 88px */
   --h1-weight: 500;
   --h1-line-height: 100%;
   --h1-letter-spacing: 0.02em;
 
-  --h2-size: 76px;
+  --h2-size: 3.958vw; /* 76px */
   --h2-weight: 500;
   --h2-line-height: 100%;
   --h2-letter-spacing: 0.02em;
 
-  --h3-size: 52px;
+  --h3-size: 2.708vw; /* 52px */
   --h3-weight: 500;
   --h3-line-height: 72px;
   --h3-letter-spacing: 0.02em;
 
-  --hero-top-text-size: 32px;
+  --hero-top-text-size: 1.667vw; /* 32px */
   --hero-top-text-weight: 500;
   --hero-top-text-line-height: 100%;
   --hero-top-text-letter-spacing: 0.05em; /* 5% */
 
-  --hero-p-normal-size: 24px;
+  --hero-p-normal-size: 1.25vw; /* 24px */
   --hero-p-normal-weight: 500;
   --hero-p-normal-line-height: 42px;
   --hero-p-normal-letter-spacing: 0.02em;
 
-  --btn-header-text-size: 16px;
-  --btn-text-size: 18px;
+  --btn-header-text-size: 0.833vw; /* 16px */
+  --btn-text-size: 0.938vw; /* 18px */
   --btn-weight: 600;
   --btn-line-height: 100%;
   --btn-letter-spacing: 0.02em; /* 2% */
 
-  --nav-menu-text-size: 20px;
+  --nav-menu-text-size: 1.042vw; /* 20px */
   --nav-menu-text-weight: 500;
   --nav-menu-text-line-height: 42px;
   --nav-menu-text-letter-spacing: 0.02em;
 
-  --nav-menu-items-size: 18px;
+  --nav-menu-items-size: 0.938vw; /* 18px */
   --nav-menu-items-weight: 500;
   --nav-menu-items-line-height: 42px;
   --nav-menu-items-letter-spacing: 0%;
 
-  --section-3-size: 62px;
+  --section-3-size: 3.229vw; /* 62px */
   --section-3-weight: 500;
   --section-3-line-height: 100%;
   --section-3-letter-spacing: 0.02em; /* 2% */
 
-  --sections-para-size: 32px;
+  --sections-para-size: 1.667vw; /* 32px */
   --sections-para-weight: 500;
   --sections-para-line-height: 42px;
   --sections-para-letter-spacing: 0.02em; /* 2% */
-  
-  --section-4-para-Text-size: 32px;
+
+  --section-4-para-Text-size: 1.667vw; /* 32px */
   --section-4-para-Text-weight: 500;
   --section-4-para-Text-line-height: 42px;
   --section-4-para-Text-letter-spacing: 0.02em; /* 2% */
 
-  --section-3-names-text-size: 30px;
+  --section-3-names-text-size: 1.563vw; /* 30px */
   --section-3-names-text-weight: 500;
   --section-3-names-text-line-height: 56px;
   --section-3-names-text-letter-spacing: 0.02em; /* 2% */
 
-  --section-3-small-heading-size: 42px;
+  --section-3-small-heading-size: 2.188vw; /* 42px */
   --section-3-small-heading-weight: 500;
   --section-3-small-heading-line-height: 100%;
   --section-3-small-heading-letter-spacing: 0.02em; /* 2% */
 
-  --section-4-circle-numbers-text-size: 32px;
+  --section-4-circle-numbers-text-size: 1.667vw; /* 32px */
 
-  --section-4-light-text-size: 42px;
+  --section-4-light-text-size: 2.188vw; /* 42px */
 
-  --sections-light-text-size: 42px;
+  --sections-light-text-size: 2.188vw; /* 42px */
   --sections-light-text-weight: 300;
   --sections-light-text-line-height: 100%;
   --sections-light-text-letter-spacing: 0%; /* 0% */
 
   --quotationText-font-family: "Noto Serif Display";
-  --quotationText-size: 200px;
+  --quotationText-size: 10.417vw; /* 200px */
   --quotationText-style: normal;
   --quotationText-weight: 400;
   --quotationText-line-height: normal;
 
-  --NamesText-size: 20px;
+  --NamesText-size: 1.042vw; /* 20px */
   --NamesText-weight: 500;
   --NamesText-line-height: normal;
   --NamesText-letter-spacing: 1px;
 
-  --ScrollText-size: 12px;
+  --ScrollText-size: 12px
   --ScrollText-weight: 500;
   --ScrollText-line-height: 26px;
   --ScrollText-letter-spacing: 0%;
 
-  --section-5-text-size: 76px;
+  --section-5-text-size: 3.958vw; /* 76px */
   --section-5-text-weight: 500;
   --section-5-text-line-height: 100%;
   --section-5-text-letter-spacing: 0.02em;
 
-  --footer-small-text-size: 16px;
+  --footer-small-text-size: 0.833vw; /* 16px */
   --footer-small-text-weight: 500;
   --footer-small-text-line-height: 100%;
   --footer-small-text-bold-line-height: 100%;
@@ -154,6 +154,9 @@ html, body {
     --NamesText-size: 16px;
     --section-5-text-size: 48px;
     --footer-small-text-size: 14px;
+
+    /* added: was only defined on desktop */
+    --ScrollText-size: 12px;
   }
 }
 
@@ -174,6 +177,9 @@ html, body {
     --hero-p-normal-size: 16px;
     --hero-p-normal-line-height: 24px;
     --hero-p-normal-letter-spacing: 0.32px;
+
+    /* added: desktop-only var, keep same px value here */
+    --btn-header-text-size: 16px;
 
     --btn-text-size: 16px;
     --nav-menu-text-size: 26px;
@@ -198,8 +204,12 @@ html, body {
     --section-5-text-size: 42px;
     --footer-small-text-size: 16px;
     --footer-small-text-bold-line-height: 140%;
+
+    /* added: desktop-only var, keep same px value here */
+    --ScrollText-size: 12px;
   }
 }
+
 
 /* 3. Typography classes */
 .h1-text { font-family: var(--font-heading); font-size: var(--h1-size); font-weight: var(--h1-weight); line-height: var(--h1-line-height); letter-spacing: var(--h1-letter-spacing); color: var(--color-text); }

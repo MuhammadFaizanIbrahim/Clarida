@@ -26,7 +26,7 @@ const ClaridaScrollStore = () => {
       <div className="absolute inset-0 bg-black/15 pointer-events-none z-10" />
 
       <EntranceAnimation
-        className="relative z-10 px-5 md:px-8 lg:px-20 py-8 md:py-10 lg:py-[2vw] 
+        className="relative z-10 px-5 md:px-8 lg:px-12 2xl:px-20 py-8 md:py-10 lg:py-[2vw] 
         flex flex-col md:flex-row items-center md:items-start justify-center md:justify-between w-full gap-2 text-center md:text-left"
         style={{
           background: `linear-gradient(180deg, rgba(0, 0, 0, 0.40) 0%, rgba(0, 0, 0, 0.00) 25%), linear-gradient(180deg, rgba(0, 0, 0, 0.00) 0%, rgba(0, 0, 0, 0.40) 100%) ${
@@ -54,7 +54,7 @@ const ClaridaScrollStore = () => {
           variants={containerVariants}
         >
           <motion.p
-            className="hero-paragraph-normal w-[350px] md:w-[400px] lg:w-[780px] text-center md:text-left"
+            className="hero-paragraph-normal w-[350px] md:w-[400px] lg:w-[40.625vw] text-center md:text-left"
             variants={itemVariants}
           >
             Clarida is built on 100 million years of marine wisdom. Now it’s almost ready.
@@ -66,7 +66,7 @@ const ClaridaScrollStore = () => {
             <Button
               width="w-[235px] md:w-[220px] lg:w-[14.365vw]"
               height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
-              extra="gap-2 mt-5 lg:mt-6 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
+              extra="gap-2 mt-5 lg:mt-3 2xl:mt-6 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
             >
               Reserve My Early Access
               <img

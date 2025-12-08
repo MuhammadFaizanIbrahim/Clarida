@@ -21,9 +21,9 @@ const Footer = () => {
 
       <div
         className="absolute inset-0 bg-black/20 z-10 flex flex-col justify-between
-       py-13 px-5 md:py-8 md:px-18 lg:py-10 lg:px-[260px] gap-5 md:gap-10"
+       py-13 px-5 md:py-8 md:px-18 lg:py-10 lg:px-40 2xl:px-[260px] gap-5 md:gap-10"
       >
-        <div className="flex flex-col lg:flex-row items-center gap-0 w-full">
+        <div className="flex flex-col lg:flex-row items-center gap-0 w-full ">
           <h2 className="h2-text">
             You’re Not <span className="h2-text-bold">Waiting.</span>
           </h2>
@@ -34,7 +34,7 @@ const Footer = () => {
 
         {/* Contact Form */}
         <form
-          className="space-y-5 md:space-y-8 w-[350px] md:w-[800px] lg:w-[950px] mx-auto text-center"
+          className="space-y-5 md:space-y-8 lg:space-y-6 2xl:space-y-8 w-[350px] md:w-[800px] lg:w-[780px] 2xl:w-[950px] mx-auto text-center "
           onSubmit={(e) => {
             e.preventDefault(); // prevent the default form submission
             console.log("Form submitted");
@@ -42,24 +42,24 @@ const Footer = () => {
           }}
         >
           {/* Name and Email Inputs */}
-          <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+          <div className="flex flex-col md:flex-row gap-4 md:gap-6 lg:gap-0.5 2xl:gap-6">
             <input
               type="text"
               placeholder="Your name*"
-              className="footer-small-text py-2 w-full px-5 md:px-[26px] bg-transparent h-12 md:h-14
+              className="footer-small-text py-2 w-full px-5 md:px-[26px] bg-transparent h-12 md:h-14 lg:h-[2.917vw]
                border border-[rgba(255,255,255,0.50)] rounded-lg focus:outline-none backdrop-blur-[5px]"
             />
             <input
               type="email"
               placeholder="Your email address*"
-              className="footer-small-text py-2 w-full px-5 md:px-[26px] bg-transparent h-12 md:h-14
+              className="footer-small-text py-2 w-full px-5 md:px-[26px] bg-transparent h-12 md:h-14 lg:h-[2.917vw]
                border border-[rgba(255,255,255,0.50)] rounded-lg focus:outline-none backdrop-blur-[5px]"
             />
           </div>
 
           {/* Dropdown and Text */}
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 w-full">
-            <label className="footer-small-text-bold text-left w-full md:w-[400px] lg:w-[460px]">
+          <div className="flex flex-col md:flex-row md:justify-between lg:justify-center 2xl:justify-between items-center gap-4 md:gap-4 lg:gap-0 2xl:gap-4 w-full">
+            <label className="footer-small-text-bold text-left w-full md:w-[400px] lg:w-[450px] 2xl:w-[460px]">
               Why are you contacting Clarida? Please choose from the list
             </label>
             <CustomSelect />
@@ -69,7 +69,7 @@ const Footer = () => {
           <textarea
             placeholder="Your inquiry"
             rows="4"
-            className="footer-small-text py-5 w-full px-5 md:px-[26px] h-[90px] md:h-[220px] bg-transparent
+            className="footer-small-text py-5 w-full px-5 md:px-[26px] h-[90px] md:h-[220px] lg:h-[11.458vw] bg-transparent
              border border-[rgba(255,255,255,0.50)] rounded-lg focus:outline-none backdrop-blur-[5px] resize-none"
           ></textarea>
 
@@ -77,8 +77,8 @@ const Footer = () => {
           <div className="flex justify-center">
             <Button
               type="submit" // add the submit type
-              width="w-[130px] md:w-[170px] lg:w-[181px]"
-              height="h-[48px] md:h-[45px] lg:h-[56px]"
+              width="w-[130px] md:w-[170px] lg:w-[9.427vw]"
+              height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
               extra="gap-3 md:gap-4 flex"
             >
               {isMobile ? "Send" : "Send Inquiry"}
@@ -92,23 +92,23 @@ const Footer = () => {
         </form>
 
         {/* Footer Links and Logo */}
-        <div className="w-full flex flex-col md:flex-row items-center md:items-end justify-center md:justify-between
-         h-auto md:h-40 px-15 py-5 md:px-10 md:py-10 bg-transparent border border-[rgba(255,255,255,0.50)] rounded-lg backdrop-blur-[5px] gap-6 md:gap-0">
+        <div className="w-full flex flex-col md:flex-row items-center md:items-end lg:items-center 2xl:items-end justify-center md:justify-between
+         h-auto md:h-40 lg:h-20 2xl:h-40 px-15 py-5 md:px-10 md:py-10 bg-transparent border border-[rgba(255,255,255,0.50)] rounded-lg backdrop-blur-[5px] gap-6 md:gap-0">
           {/* Logo (Mobile: Top, Desktop: Center) */}
           <div className="flex flex-col items-center order-1 md:order-2">
             <div className="flex items-center gap-2 md:gap-0">
               <img
                 src="images/logoIconFooter.png"
                 alt="Clarida Logo"
-                className="w-9 h-10 md:w-[54px] md:h-[54px] lg:w-[54px] lg:h-[60px]"
+                className="w-9 h-10 md:w-[54px] md:h-[54px] lg:w-[2.813vw] lg:h-[3.125vw]"
               />
               <img
                 src="images/logoText.svg"
                 alt="Clarida Text"
-                className="w-[100px] h-4 lg:w-[150px] lg:h-[25px]"
+                className="w-[100px] h-4 lg:w-[7.813vw] lg:h-[1.302vw]"
               />
             </div>
-            <p className="footer-small-text md:mt-2 hidden md:block">Clarida &copy; 2025</p>
+            <p className="footer-small-text md:mt-2 lg:mt-0 2xl:mt-2 hidden md:block">Clarida &copy; 2025</p>
           </div>
 
           {/* Privacy + Terms (Mobile: below logo, Desktop: left) */}

@@ -295,6 +295,10 @@ const VisionaryGuarantee = () => {
       // tablet
       return `calc(55.8vw + ${index * tickSpacingVW}vw)`;
     }
+    if (w < 1500) {
+      // tablet
+      return `calc(55.7vw + ${index * tickSpacingVW}vw)`;
+    }
 
     // desktop
     return `calc(54.2vw + ${index * tickSpacingVW}vw)`;
@@ -335,7 +339,7 @@ const VisionaryGuarantee = () => {
       <div
         ref={timeBarRef}
         className="
-          pointer-events-none absolute bottom-8 md:bottom-10 lg:bottom-14
+          pointer-events-none absolute bottom-8 md:bottom-10 lg:bottom-4 2xl:bottom-14
           -left-17 md:-left-17 lg:-left-21 z-20
           w-(--timebar-width-mobile)
           sm:w-(--timebar-width-tablet)
@@ -350,7 +354,7 @@ const VisionaryGuarantee = () => {
         <div className="relative h-[60px]">
           {/* base line */}
           <div
-            className="absolute h-px left-64 md:left-[55.87vw] lg:left-[54.2vw] right-[34.5vw] md:right-[44.1vw] lg:right-[45.73vw] bg-(--color-text)"
+            className="absolute h-px left-64 md:left-[55.87vw] lg:left-[55.8vw] 2xl:left-[54.2vw] right-[34.5vw] md:right-[44.1vw] lg:right-[44.2vw] 2xl:right-[45.73vw] bg-(--color-text)"
             style={{
               top: "50%",
               transform: "translateY(-50%)",

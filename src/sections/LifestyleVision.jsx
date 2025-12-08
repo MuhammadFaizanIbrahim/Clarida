@@ -119,7 +119,7 @@ const LifestyleVision = () => {
 
       <div
         ref={textRef}
-        className="relative z-10 px-5 md:px-8 lg:px-20 py-8 md:py-5 lg:py-[2vw] 
+        className="relative z-10 px-5 md:px-8 lg:px-12 2xl:px-20 py-8 md:py-5 lg:py-[2vw] 
         flex flex-col md:flex-row items-center md:items-start justify-center md:justify-between w-full gap-2 text-center md:text-left"
         style={{
           background: `linear-gradient(180deg, rgba(0, 0, 0, 0.40) 0%, rgba(0, 0, 0, 0.00) 25%), linear-gradient(180deg, rgba(0, 0, 0, 0.00) 0%, rgba(0, 0, 0, 0.40) 100%) ${
@@ -138,7 +138,7 @@ const LifestyleVision = () => {
             <Button
               width="w-[235px] md:w-[250px] lg:w-[16.302vw]"
               height="h-[48px] md:h-[48px] lg:h-[2.917vw]"
-              extra="gap-2 mt-5 md:mt-2 lg:mt-2 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
+              extra="gap-2 mt-5 md:mt-2 lg:mt-0 2xl:mt-2 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
             >
               Start Your Clarida Story Today
               <img
@@ -152,7 +152,7 @@ const LifestyleVision = () => {
 
         {/* Right Side */}
         <div className="md:w-1/2 flex flex-col items-center md:items-start">
-          <p className="hero-paragraph-normal w-[350px] md:w-[400px] lg:w-[780px] text-center md:text-left">
+          <p className="hero-paragraph-normal w-[350px] md:w-[400px] lg:w-[40.625vw] text-center md:text-left">
             Because when vision returns, life itself comes back into focus.
             Clarida gives you more than sight — it gives you back the freedom to
             read, connect, and rediscover the world you love. Every day becomes

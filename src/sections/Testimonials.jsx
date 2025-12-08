@@ -325,7 +325,7 @@ const Testimonials = () => {
   return (
     <section
       ref={sectionRef}
-      className="relative z-10 w-full h-screen overflow-hidden flex flex-col-reverse md:flex-row 
+      className="relative z-10 w-full h-screen lg:h-full overflow-hidden flex flex-col-reverse md:flex-row 
     items-center justify-between px-8 py-15 md:px-20 md:py-20 lg:px-[7.813vw] lg:py-[6.5vw]"
       style={{
         backgroundImage: hasVideo

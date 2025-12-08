@@ -13,10 +13,11 @@ const CustomSelect = () => {
   };
 
   return (
-    <div className="relative w-full md:max-w-[390px] lg:max-w-[460px]">
+    <div className="relative w-[350px] md:w-[390px] lg:w-[450px] 2xl:w-[460px]">
       <div
         onClick={toggleDropdown}
-        className="flex justify-between items-center footer-small-text px-5 md:px-[26px] py-2 h-12 md:h-14 bg-transparent border border-[rgba(255,255,255,0.50)] rounded-lg focus:outline-none backdrop-blur-[5px] cursor-pointer"
+        className="flex justify-between items-center footer-small-text px-5 md:px-[26px] py-2 h-12 md:h-14 lg:h-[2.92vw]
+         bg-transparent border border-[rgba(255,255,255,0.50)] rounded-lg focus:outline-none backdrop-blur-[5px] cursor-pointer"
       >
         <span className="text-left">{selectedOption}</span>
         <img

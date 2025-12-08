@@ -232,7 +232,7 @@ const ActivationTimeline = () => {
                 <img
                   src={item.pill_Image}
                   alt={item.doseLabel || item.title}
-                  className="w-[60px] h-[60px] md:w-20 md:h-20 mb-4 md:mb-6 opacity-90"
+                  className="w-[60px] h-[60px] md:w-20 md:h-20 lg:w-13 lg:h-13 2xl:w-20 2xl:h-20 mb-4 md:mb-6 lg:mb-3 2xl:mb-6 opacity-90"
                 />
               )}
 
@@ -261,10 +261,10 @@ const ActivationTimeline = () => {
       </div>
 
       {/* BOTTOM ROTATING CIRCLE */}
-      <div className="pointer-events-none absolute -bottom-[21vh] md:-bottom-[30vh] lg:-bottom-[34vh] left-1/2 -translate-x-1/2 flex items-center justify-center">
+      <div className="pointer-events-none absolute -bottom-[21vh] md:-bottom-[30vh] lg:-bottom-[25%] 2xl:-bottom-[34vh] left-1/2 -translate-x-1/2 flex items-center justify-center">
         <div
           ref={circleRef}
-          className="relative w-[300px] md:w-[430px] lg:w-[500px]
+          className="relative w-[300px] md:w-[430px] lg:w-[350px] 2xl:w-[500px]
           aspect-square rounded-full border border-white/25"
         >
           {timelineSteps.map((step, index) => {
@@ -282,10 +282,10 @@ const ActivationTimeline = () => {
                   <img
                     src={step.orbitIcon}
                     alt={`Dose ${index + 1} icon`}
-                    className="mb-8 md:mb-10 h-10 w-10 md:h-15 md:w-15 lg:h-20 lg:w-20"
+                    className="mb-8 md:mb-10 lg:mb-5 2xl:mb-10 h-10 w-10 md:h-15 md:w-15 lg:h-13 lg:w-13 2xl:h-20 2xl:w-20"
                   />
                 )}
-                <span className="section-4-circle-numbers-text mb-32 md:mb-45 lg:mb-55">
+                <span className="section-4-circle-numbers-text mb-32 md:mb-45 lg:mb-37 2xl:mb-55">
                   {index + 1}
                 </span>
               </div>

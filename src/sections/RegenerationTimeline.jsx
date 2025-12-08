@@ -437,7 +437,7 @@ const RegenerationTimeline = () => {
       <div
         ref={timeBarRef}
         className="
-        pointer-events-none absolute top-15 md:top-10 -left-17 md:-left-17 lg:-left-21 z-10 
+        pointer-events-none absolute top-15 md:top-10 -left-17 md:-left-17 lg:-left-14 2xl:-left-21 z-10 
         w-(--timebar-width-mobile)
         sm:w-(--timebar-width-tablet)
         lg:w-(--timebar-width-desktop)"
@@ -450,7 +450,7 @@ const RegenerationTimeline = () => {
         <div className="relative h-[70px]">
           {/* continuous line */}
           <div
-            className="absolute h-px left-64 md:left-[55.87vw] lg:left-[54.2vw] right-[34.5vw] md:right-[44.1vw] lg:right-[46vw] bg-(--color-text)"
+            className="absolute h-px left-64 md:left-[55.87vw] lg:left-[54.2vw] right-[34.5vw] md:right-[44.1vw] lg:right-[45.85vw] 2xl:right-[46vw] bg-(--color-text)"
             style={{
               top: "0%",
               transform: "translateY(-50%)",
@@ -461,7 +461,7 @@ const RegenerationTimeline = () => {
           {timelineSteps.slice(0, tickCount).map((item, index) => (
             <div
               key={index}
-              className="absolute flex flex-col items-center top-[55.5%] md:top-[65%] lg:top-[70%]"
+              className="absolute flex flex-col items-center top-[55.5%] md:top-[65%] lg:top-[61%] xl:top-[62%] 2xl:top-[70%]"
               style={{
                 left: `calc(50vw + ${index * tickSpacingVW}vw)`,
                 transform: "translateY(-50%)",

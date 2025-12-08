@@ -109,7 +109,7 @@ const GlobalCommunityImpact = () => {
       {/* TEXT + ACCORDION OVERLAY */}
       <div
         ref={textRef}
-        className="absolute left-0 md:-left-40 lg:left-40 top-0 h-full flex flex-col gap-2 md:gap-8 justify-center items-center text-center w-full lg:w-[46%] z-20"
+        className="absolute left-0 md:-left-40 lg:left-30 2xl:left-40 top-0 h-full flex flex-col gap-2 md:gap-8 justify-center items-center text-center w-full lg:w-[46%] z-20"
         style={{
           opacity: 0,
           filter: "blur(14px)",
@@ -117,12 +117,12 @@ const GlobalCommunityImpact = () => {
         }}
       >
         {/* Heading */}
-        <h2 className="h2-text w-[400px] md:w-[600px] lg:w-[950px]">
+        <h2 className="h2-text w-[400px] md:w-[600px] lg:w-[700px] 2xl:w-[950px]">
           One World. One <span className="h2-text-bold">Vision.</span>
         </h2>
 
         {/* Paragraph */}
-        <p className="section-4-paragraph-text w-[350px] md:w-[600px] lg:w-[950px] md:mt-3">
+        <p className="section-4-paragraph-text w-[350px] md:w-[600px] lg:w-[700px] 2xl:w-[950px] md:mt-3">
           From New York to Nairobi, Sydney to São Paulo—millions are waiting to
           reclaim their clarity.
         </p>
@@ -143,7 +143,7 @@ const GlobalCommunityImpact = () => {
         />
 
         {/* Accordion + Button group */}
-        <div className="w-[350px] md:w-[600px] lg:w-[950px] flex flex-col items-center">
+        <div className="w-[350px] md:w-[600px] lg:w-[700px] 2xl:w-[950px] flex flex-col items-center">
           {/* Accordion Content */}
           <div
             className="
@@ -159,7 +159,7 @@ const GlobalCommunityImpact = () => {
           ${isOpen ? "opacity-100" : "opacity-0"}
         `}
             >
-              <p className="section-4-paragraph-text w-[350px] md:w-[600px] lg:w-[950px]">
+              <p className="section-4-paragraph-text w-[350px] md:w-[600px] lg:w-[700px] 2xl:w-[950px]">
                 Clarida is more than a product or protocol. It’s a movement of
                 individuals who refuse to accept vision loss as their final
                 story. Together, we are building a future where clarity returns,

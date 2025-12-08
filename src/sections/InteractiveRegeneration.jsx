@@ -382,7 +382,10 @@ const InteractiveRegeneration = () => {
       // tablet
       return `calc(55.8vw + ${index * tickSpacingVW}vw)`;
     }
-
+    if (w < 1500) {
+      // tablet
+      return `calc(56.15vw + ${index * tickSpacingVW}vw)`;
+    }
     // desktop
     return `calc(54.2vw + ${index * tickSpacingVW}vw)`;
   };
@@ -397,7 +400,7 @@ const InteractiveRegeneration = () => {
         ref={imgRef}
         src={framePaths[0]}
         alt="Zebrafish regeneration sequence"
-        className="h-full w-full object-cover"
+        className="h-full w-full object-cover md:object-fill"
       />
 
       {/* 🔊 SECTION AUDIO (change the src to your actual file) */}
@@ -416,7 +419,7 @@ const InteractiveRegeneration = () => {
         <div
           key={index}
           ref={(el) => (textRefs.current[index] = el)}
-          className="absolute inset-0 flex flex-col items-center top-[67%] md:top-[70%] text-center px-6 gap-6"
+          className="absolute inset-0 flex flex-col items-center top-[67%] md:top-[70%] lg:top-[67%] 2xl:top-[70%] text-center px-6 gap-6 lg:gap-0 2xl:gap-6"
           style={{
             opacity: 0,
             transform: "translateY(0px)",
@@ -427,9 +430,9 @@ const InteractiveRegeneration = () => {
 
           {step.showButton && (
             <Button
-              width="w-[220px] md:w-[220px] lg:w-[13vw]"
+              width="w-[220px] md:w-[220px] lg:w-[15em]"
               height="h-[48px] md:h-[46px] lg:h-[2.9vw]"
-              extra="gap-2  lg:gap-3 lg:py-[10px] lg:px-[18px] flex"
+              extra="gap-2 lg:gap-3 lg:py-[10px] lg:px-[18px] flex"
             >
               Watch Full Explainer
               <img
@@ -446,7 +449,7 @@ const InteractiveRegeneration = () => {
       <div
         ref={timeBarRef}
         className="
-          pointer-events-none absolute bottom-8 md:bottom-10 lg:bottom-14
+          pointer-events-none absolute bottom-8 md:bottom-10 lg:bottom-6 2xl:bottom-14
           -left-17 md:-left-17 lg:-left-21 z-20
           w-(--timebar-width-mobile)
           sm:w-(--timebar-width-tablet)
@@ -461,7 +464,7 @@ const InteractiveRegeneration = () => {
         <div className="relative h-[60px]">
           {/* base line */}
           <div
-            className="absolute h-px left-64 md:left-[55.87vw] lg:left-[54.2vw] right-[34.5vw] md:right-[44.1vw] lg:right-[45.73vw] bg-(--color-text)"
+            className="absolute h-px left-64 md:left-[55.87vw] lg:left-[56.2vw] 2xl:left-[54.2vw] right-[34.5vw] md:right-[44.1vw] lg:right-[43.73vw] 2xl:right-[45.73vw] bg-(--color-text)"
             style={{
               top: "50%",
               transform: "translateY(-50%)",
