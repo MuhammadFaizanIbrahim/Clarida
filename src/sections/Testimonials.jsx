@@ -341,7 +341,7 @@ const Testimonials = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
-            className="absolute inset-0 w-full h-full z-0 sm:bg-cover md:bg-cover lg:bg-auto"
+            className="absolute inset-0 w-full h-full z-0 bg-cover bg-no-repeat bg-center"
             style={{
               backgroundImage: `url(${isMobile ? t.mob_image : t.image})`,
             }}
@@ -365,7 +365,7 @@ const Testimonials = () => {
 
       {/* LEFT PANEL */}
       <div
-        className={`relative z-10 w-[350px] md:w-[290px] lg:w-[350px] 2xl:w-[400px] bg-white/5 backdrop-blur-[5px]
+        className={`relative z-10 w-[350px] md:w-[290px] lg:w-[330px] 2xl:w-[400px] bg-white/5 backdrop-blur-[5px]
         border border-white/50 rounded-lg px-[45px] py-5 md:p-[1.563vw]
         transition-opacity duration-500
         ${!isDesktop && "opacity-100"} ${
