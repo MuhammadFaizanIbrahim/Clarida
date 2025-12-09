@@ -24,7 +24,7 @@ const Footer = () => {
        py-13 px-5 md:py-8 md:px-18 lg:py-10 lg:px-40 2xl:px-[260px] gap-5 md:gap-10"
       >
         <div className="flex flex-col lg:flex-row items-center gap-0 w-full ">
-          <h2 className="h2-text">
+          <h2 className="h2-text text-center">
             You’re Not <span className="h2-text-bold">Waiting.</span>
             You’re <span className="h2-text-bold">Awakening.</span>
           </h2>
