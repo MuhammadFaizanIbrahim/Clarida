@@ -7,28 +7,32 @@ import { useMediaQuery } from "react-responsive";
 
 gsap.registerPlugin(ScrollTrigger);
 
-// adjust if you change frame count
+// ----------------- FRAME SETUP -----------------
 const TOTAL_FRAMES = 61;
 
-// build frame paths: frame_00001.webp ... frame_00061.webp
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
   return `/frames/LifestyleVision/frame_${index}.webp`;
 });
 
+const FIRST_FRAME_SRC = framePaths[0];
+
 const LifestyleVision = () => {
   useLenisSmoothScroll();
 
   const sectionRef = useRef(null);
-  const imgRef = useRef(null);
+  const canvasRef = useRef(null);
   const textRef = useRef(null);
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
-  // 🔹 NEW: caches for performance
+  // caches for performance
   const preloadedFramesRef = useRef([]);
   const lastFrameIndexRef = useRef(-1);
 
-  // 🔹 NEW: preload all frames once
+  const logicalWidthRef = useRef(0);
+  const logicalHeightRef = useRef(0);
+
+  // 🔹 preload all frames once (same behavior as before)
   useEffect(() => {
     const images = framePaths.map((src) => {
       const img = new Image();
@@ -38,29 +42,155 @@ const LifestyleVision = () => {
     preloadedFramesRef.current = images;
   }, []);
 
+  // 🔹 draw first frame ASAP to avoid blank flash
+  useEffect(() => {
+    const section = sectionRef.current;
+    const canvas = canvasRef.current;
+    if (!section || !canvas) return;
+
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) return;
+
+    const img = new Image();
+    img.src = FIRST_FRAME_SRC;
+
+    img.onload = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = section.getBoundingClientRect();
+
+      logicalWidthRef.current = rect.width;
+      logicalHeightRef.current = rect.height;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const imgW = img.naturalWidth;
+      const imgH = img.naturalHeight;
+      const imgAspect = imgW / imgH;
+      const canvasAspect = rect.width / rect.height;
+
+      let drawW, drawH, offsetX, offsetY;
+
+      if (imgAspect > canvasAspect) {
+        // image wider → match height, crop sides
+        drawH = rect.height;
+        drawW = drawH * imgAspect;
+        offsetX = (rect.width - drawW) / 2;
+        offsetY = 0;
+      } else {
+        // taller/narrower → match width, crop top/bottom
+        drawW = rect.width;
+        drawH = drawW / imgAspect;
+        offsetX = 0;
+        offsetY = (rect.height - drawH) / 2;
+      }
+
+      ctx2d.clearRect(0, 0, rect.width, rect.height);
+      ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+    };
+  }, []);
+
   useLayoutEffect(() => {
     const section = sectionRef.current;
-    const img = imgRef.current;
+    const canvas = canvasRef.current;
     const text = textRef.current;
-    if (!section || !img || !text) return;
+    if (!section || !canvas || !text) return;
+
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) return;
 
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
+    const resizeCanvas = () => {
+      const rect = section.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      logicalWidthRef.current = rect.width;
+      logicalHeightRef.current = rect.height;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // redraw last frame on resize
+      const lastIndex =
+        lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
+      drawFrame(lastIndex);
+    };
+
+    const drawFrame = (frameIndex) => {
+      const frames = preloadedFramesRef.current;
+      const w = logicalWidthRef.current || canvas.clientWidth;
+      const h = logicalHeightRef.current || canvas.clientHeight;
+      if (!w || !h || !frames || !frames.length) return;
+
+      let img = frames[frameIndex];
+
+      // if exact not ready, grab nearest loaded
+      if (!img) {
+        for (let i = frameIndex - 1; i >= 0; i--) {
+          if (frames[i]) {
+            img = frames[i];
+            break;
+          }
+        }
+        if (!img) {
+          for (let i = frameIndex + 1; i < frames.length; i++) {
+            if (frames[i]) {
+              img = frames[i];
+              break;
+            }
+          }
+        }
+      }
+
+      if (!img) return;
+
+      ctx2d.clearRect(0, 0, w, h);
+
+      const imgW = img.naturalWidth;
+      const imgH = img.naturalHeight;
+      const imgAspect = imgW / imgH;
+      const canvasAspect = w / h;
+
+      let drawW, drawH, offsetX, offsetY;
+
+      if (imgAspect > canvasAspect) {
+        // image wider → fit height
+        drawH = h;
+        drawW = drawH * imgAspect;
+        offsetX = (w - drawW) / 2;
+        offsetY = 0;
+      } else {
+        // image taller → fit width
+        drawW = w;
+        drawH = drawW / imgAspect;
+        offsetX = 0;
+        offsetY = (h - drawH) / 2;
+      }
+
+      ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+    };
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    const maxBlur = 14;
+
     if (prefersReducedMotion) {
-      // No scroll scrub: just show first frame + readable text
-      img.src = framePaths[0];
+      // same reduced-motion behavior: just show first frame + readable text
       gsap.set(text, { opacity: 1, filter: "blur(0px)" });
-      return;
+
+      return () => {
+        window.removeEventListener("resize", resizeCanvas);
+      };
     }
 
     let ctx = gsap.context(() => {
-      img.src = framePaths[0];
-
-      const maxBlur = 14;
-
-      // 🔹 start in the same state as progress = 0
+      // start text in the same state as progress = 0
       gsap.set(text, {
         opacity: 0.1,
         filter: `blur(${maxBlur}px)`,
@@ -83,7 +213,7 @@ const LifestyleVision = () => {
         onUpdate: (self) => {
           const progress = self.progress; // 0 → 1
 
-          // ----- FRAME SCRUB (optimized) -----
+          // ----- FRAME SCRUB via CANVAS -----
           const frameIndex = Math.min(
             TOTAL_FRAMES - 1,
             Math.floor(progress * (TOTAL_FRAMES - 1))
@@ -91,13 +221,7 @@ const LifestyleVision = () => {
 
           if (frameIndex !== lastFrameIndexRef.current) {
             lastFrameIndexRef.current = frameIndex;
-
-            const preloaded = preloadedFramesRef.current[frameIndex];
-            const nextSrc = preloaded?.src || framePaths[frameIndex];
-
-            if (img.src !== nextSrc) {
-              img.src = nextSrc;
-            }
+            drawFrame(frameIndex);
           }
 
           const FADE_END = 0.65;
@@ -120,7 +244,10 @@ const LifestyleVision = () => {
       });
     }, section);
 
-    return () => ctx.revert();
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      ctx.revert();
+    };
   }, [isMobile]);
 
   return (
@@ -128,12 +255,8 @@ const LifestyleVision = () => {
       ref={sectionRef}
       className="relative h-screen flex items-end justify-between text-white overflow-hidden"
     >
-      <img
-        ref={imgRef}
-        src={framePaths[0]} // initial fallback
-        alt="The Clarida Difference"
-        className="absolute h-full w-full object-cover"
-      />
+      {/* FRAME BACKGROUND via CANVAS */}
+      <canvas className="absolute h-full w-full" ref={canvasRef} />
 
       <div className="absolute inset-0 bg-black/25 pointer-events-none z-10" />
 

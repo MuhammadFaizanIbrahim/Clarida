@@ -1,5 +1,5 @@
-// ClaridaDifferenceFrames.jsx
-import React, { useLayoutEffect, useRef, useState, useEffect } from "react"; // ⬅️ added useEffect
+// GlobalCommunityImpactFrames.jsx
+import React, { useLayoutEffect, useRef, useState, useEffect } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
@@ -15,49 +15,197 @@ const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   return `/frames/GlobalCommunityImpactNew/frame_${index}.webp`;
 });
 
+const FIRST_FRAME_SRC = framePaths[0];
+
 const GlobalCommunityImpact = () => {
   useLenisSmoothScroll();
 
   const sectionRef = useRef(null);
-  const imgRef = useRef(null);
+  const canvasRef = useRef(null);
   const textRef = useRef(null);
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
   const [isOpen, setIsOpen] = useState(false); // accordion state
 
-  // 🔹 NEW: cache for preloaded frames + last frame index
-  const preloadedFramesRef = useRef([]);
+  // caches for frames + last frame index
+  const preloadedFramesRef = useRef([]); // Image | null[]
   const lastFrameIndexRef = useRef(-1);
 
-  // 🔹 NEW: preload all frames once
+  const logicalWidthRef = useRef(0);
+  const logicalHeightRef = useRef(0);
+
+  // 🔹 PRELOAD FRAMES INCREMENTALLY (same pattern as other sections)
   useEffect(() => {
-    const images = framePaths.map((src) => {
+    let isCancelled = false;
+
+    preloadedFramesRef.current = new Array(TOTAL_FRAMES).fill(null);
+
+    framePaths.forEach((src, index) => {
       const img = new Image();
       img.src = src;
-      return img;
+
+      img.onload = () => {
+        if (isCancelled) return;
+        preloadedFramesRef.current[index] = img;
+      };
+
+      img.onerror = () => {
+        if (isCancelled) return;
+        preloadedFramesRef.current[index] = null;
+      };
     });
-    preloadedFramesRef.current = images;
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // 🔹 DRAW FIRST FRAME ASAP TO AVOID BLANK FLASH
+  useEffect(() => {
+    const section = sectionRef.current;
+    const canvas = canvasRef.current;
+    if (!section || !canvas) return;
+
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) return;
+
+    const img = new Image();
+    img.src = FIRST_FRAME_SRC;
+
+    img.onload = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = section.getBoundingClientRect();
+
+      logicalWidthRef.current = rect.width;
+      logicalHeightRef.current = rect.height;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const imgW = img.naturalWidth;
+      const imgH = img.naturalHeight;
+      const imgAspect = imgW / imgH;
+      const canvasAspect = rect.width / rect.height;
+
+      let drawW, drawH, offsetX, offsetY;
+
+      if (imgAspect > canvasAspect) {
+        // image wider → match height, crop sides
+        drawH = rect.height;
+        drawW = drawH * imgAspect;
+        offsetX = (rect.width - drawW) / 2;
+        offsetY = 0;
+      } else {
+        // taller/narrower → match width, crop top/bottom
+        drawW = rect.width;
+        drawH = drawW / imgAspect;
+        offsetX = 0;
+        offsetY = (rect.height - drawH) / 2;
+      }
+
+      ctx2d.clearRect(0, 0, rect.width, rect.height);
+      ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+    };
   }, []);
 
   useLayoutEffect(() => {
     const section = sectionRef.current;
-    const img = imgRef.current;
+    const canvas = canvasRef.current;
     const text = textRef.current;
-    if (!section || !img || !text) return;
+    if (!section || !canvas || !text) return;
+
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) return;
 
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
+    const resizeCanvas = () => {
+      const rect = section.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      logicalWidthRef.current = rect.width;
+      logicalHeightRef.current = rect.height;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // redraw last frame on resize
+      const lastIndex =
+        lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
+      drawFrame(lastIndex);
+    };
+
+    const drawFrame = (frameIndex) => {
+      const frames = preloadedFramesRef.current;
+      const w = logicalWidthRef.current || canvas.clientWidth;
+      const h = logicalHeightRef.current || canvas.clientHeight;
+      if (!w || !h || !frames || !frames.length) return;
+
+      let img = frames[frameIndex];
+
+      // nearest-loaded fallback if not yet loaded
+      if (!img) {
+        for (let i = frameIndex - 1; i >= 0; i--) {
+          if (frames[i]) {
+            img = frames[i];
+            break;
+          }
+        }
+        if (!img) {
+          for (let i = frameIndex + 1; i < frames.length; i++) {
+            if (frames[i]) {
+              img = frames[i];
+              break;
+            }
+          }
+        }
+      }
+
+      if (!img) return;
+
+      ctx2d.clearRect(0, 0, w, h);
+
+      const imgW = img.naturalWidth;
+      const imgH = img.naturalHeight;
+      const imgAspect = imgW / imgH;
+      const canvasAspect = w / h;
+
+      let drawW, drawH, offsetX, offsetY;
+
+      if (imgAspect > canvasAspect) {
+        // image wider → fit height
+        drawH = h;
+        drawW = drawH * imgAspect;
+        offsetX = (w - drawW) / 2;
+        offsetY = 0;
+      } else {
+        // image taller → fit width
+        drawW = w;
+        drawH = drawW / imgAspect;
+        offsetX = 0;
+        offsetY = (h - drawH) / 2;
+      }
+
+      ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+    };
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
     if (prefersReducedMotion) {
-      img.src = framePaths[0];
+      // text fully visible, no scrub; first frame already drawn
       gsap.set(text, { opacity: 1, filter: "blur(0px)" });
-      return;
+
+      return () => {
+        window.removeEventListener("resize", resizeCanvas);
+      };
     }
 
     let ctx = gsap.context(() => {
-      img.src = framePaths[0];
-
       let scrollDistance;
       if (isMobile) {
         scrollDistance = window.innerHeight * 1;
@@ -75,7 +223,7 @@ const GlobalCommunityImpact = () => {
         onUpdate: (self) => {
           const progress = self.progress;
 
-          // ----- FRAME SCRUB (optimized) -----
+          // ----- FRAME SCRUB (canvas, optimized) -----
           const frameIndex = Math.min(
             TOTAL_FRAMES - 1,
             Math.floor(progress * (TOTAL_FRAMES - 1))
@@ -83,13 +231,7 @@ const GlobalCommunityImpact = () => {
 
           if (frameIndex !== lastFrameIndexRef.current) {
             lastFrameIndexRef.current = frameIndex;
-
-            const preloaded = preloadedFramesRef.current[frameIndex];
-            const nextSrc = preloaded?.src || framePaths[frameIndex];
-
-            if (img.src !== nextSrc) {
-              img.src = nextSrc;
-            }
+            drawFrame(frameIndex);
           }
 
           const FADE_END = 0.65;
@@ -113,18 +255,16 @@ const GlobalCommunityImpact = () => {
       });
     }, section);
 
-    return () => ctx.revert();
-  }, [isMobile]); // ⬅️ depend on isMobile like before
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      ctx.revert();
+    };
+  }, [isMobile]); // ⬅️ still depends on isMobile like before
 
   return (
     <section ref={sectionRef} className="relative h-screen w-screen">
-      {/* FRAME IMAGE */}
-      <img
-        ref={imgRef}
-        src={framePaths[0]}
-        alt="Global Clarida Community"
-        className="h-full w-full object-cover"
-      />
+      {/* FRAME BACKGROUND via CANVAS */}
+      <canvas ref={canvasRef} className="h-full w-full block" />
 
       {/* TEXT + ACCORDION OVERLAY */}
       <div
