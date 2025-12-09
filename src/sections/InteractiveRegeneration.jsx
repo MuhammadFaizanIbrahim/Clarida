@@ -184,7 +184,31 @@ const InteractiveRegeneration = () => {
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       ctx2d.clearRect(0, 0, rect.width, rect.height);
-      ctx2d.drawImage(img, 0, 0, rect.width, rect.height);
+
+// COVER MATH
+const imgW = img.naturalWidth;
+const imgH = img.naturalHeight;
+const imgAspect = imgW / imgH;
+const canvasAspect = rect.width / rect.height;
+
+let drawW, drawH, offsetX, offsetY;
+
+if (imgAspect > canvasAspect) {
+  // image is wider → match height, crop sides
+  drawH = rect.height;
+  drawW = drawH * imgAspect;
+  offsetX = (rect.width - drawW) / 2;
+  offsetY = 0;
+} else {
+  // image is taller/narrower → match width, crop top/bottom
+  drawW = rect.width;
+  drawH = drawW / imgAspect;
+  offsetX = 0;
+  offsetY = (rect.height - drawH) / 2;
+}
+
+ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+
     };
   }, []);
 
@@ -331,7 +355,31 @@ const InteractiveRegeneration = () => {
       if (!img) return;
 
       ctx2d.clearRect(0, 0, w, h);
-      ctx2d.drawImage(img, 0, 0, w, h);
+
+// COVER MATH
+const imgW = img.naturalWidth;
+const imgH = img.naturalHeight;
+const imgAspect = imgW / imgH;
+const canvasAspect = w / h;
+
+let drawW, drawH, offsetX, offsetY;
+
+if (imgAspect > canvasAspect) {
+  // image is wider than canvas → fit height, crop sides
+  drawH = h;
+  drawW = drawH * imgAspect;
+  offsetX = (w - drawW) / 2;
+  offsetY = 0;
+} else {
+  // image is taller (or equal) → fit width, crop top/bottom
+  drawW = w;
+  drawH = drawW / imgAspect;
+  offsetX = 0;
+  offsetY = (h - drawH) / 2;
+}
+
+ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+
     };
 
     if (prefersReducedMotion) {
