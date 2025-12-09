@@ -3,6 +3,7 @@ import ClaridaDifference from "../sections/ClaridaDifference";
 import GlobalCommunityImpact from "../sections/GlobalCommunityImpact";
 import Hero from "../sections/Hero";
 import InteractiveRegeneration from "../sections/InteractiveRegeneration";
+import InteractiveRegeneration2 from "../sections/InteractiveRegeneration2";
 import RegenerationTimeline from "../sections/RegenerationTimeline";
 import Testimonials from "../sections/Testimonials";
 import VisionaryGuarantee from "../sections/VisionaryGuarantee";
@@ -13,6 +14,7 @@ export default function Homepage() {
     <>
       <Hero />
       <InteractiveRegeneration />
+      {/* <InteractiveRegeneration2 /> */}
       <Testimonials />
       <ClaridaDifference />
       <RegenerationTimeline />
