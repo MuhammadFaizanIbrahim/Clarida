@@ -264,7 +264,7 @@ const ActivationTimeline = () => {
       <div className="pointer-events-none absolute -bottom-[21vh] md:-bottom-[30vh] lg:-bottom-[25vh] xl:-bottom-[28vh] 2xl:-bottom-[34vh] left-1/2 -translate-x-1/2 flex items-center justify-center">
         <div
           ref={circleRef}
-          className="relative w-[300px] md:w-[430px] lg:w-[380px] xl:w-[400px] 2xl:w-[500px]
+          className="relative w-[300px] md:w-[430px] lg:w-[380px] xl:w-[37.037vh] 2xl:w-[500px]
           aspect-square rounded-full border border-white/25"
         >
           {timelineSteps.map((step, index) => {
