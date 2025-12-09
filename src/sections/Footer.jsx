@@ -26,10 +26,10 @@ const Footer = () => {
         <div className="flex flex-col lg:flex-row items-center gap-0 w-full ">
           <h2 className="h2-text">
             You’re Not <span className="h2-text-bold">Waiting.</span>
-          </h2>
-          <h2 className="h2-text">
             You’re <span className="h2-text-bold">Awakening.</span>
           </h2>
+          {/* <h2 className="h2-text">
+          </h2> */}
         </div>
 
         {/* Contact Form */}
