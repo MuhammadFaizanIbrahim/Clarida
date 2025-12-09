@@ -2,7 +2,6 @@ import React, { useLayoutEffect, useRef, useEffect } from "react"; // ⬅️ use
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
-import Button from "../components/Button.jsx";
 
 gsap.registerPlugin(ScrollTrigger);
 
