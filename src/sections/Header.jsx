@@ -14,12 +14,29 @@ const Header = () => {
   // NEW: global audio toggle state
   const [isAudioOn, setIsAudioOn] = useState(false);
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 960);
+
   useEffect(() => {
-    if (typeof window !== "undefined" && typeof window.__claridaAudioOn === "boolean") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.__claridaAudioOn === "boolean"
+    ) {
       setIsAudioOn(window.__claridaAudioOn);
     }
   }, []);
-  
+
+  // NEW: resize listener for mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 960);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   useEffect(() => {
     let lastScrollY = window.scrollY;
 
@@ -44,26 +61,23 @@ const Header = () => {
   }, [isMenuOpen]);
 
   // NEW: audio button handler
-const handleAudioToggle = () => {
-  setIsAudioOn((prev) => {
-    const next = !prev;
+  const handleAudioToggle = () => {
+    setIsAudioOn((prev) => {
+      const next = !prev;
 
-    if (typeof window !== "undefined") {
-      // 🔴 keep global flag in sync
-      window.__claridaAudioOn = next;
+      if (typeof window !== "undefined") {
+        window.__claridaAudioOn = next;
 
-      // broadcast to all sections
-      window.dispatchEvent(
-        new CustomEvent("clarida-audio-toggle", {
-          detail: { isOn: next },
-        })
-      );
-    }
+        window.dispatchEvent(
+          new CustomEvent("clarida-audio-toggle", {
+            detail: { isOn: next },
+          })
+        );
+      }
 
-    return next;
-  });
-};
-
+      return next;
+    });
+  };
 
   return (
     <>
@@ -71,7 +85,9 @@ const handleAudioToggle = () => {
         className={`fixed left-1/2 -translate-x-1/2 z-50 w-full lg:w-[85.208vw] h-[55px] md:h-[70px] lg:h-[60px] 
       bg-white/10 backdrop-blur-md text-(--color-text) 
     flex items-center justify-between lg:px-5 lg:py-3 px-8 py-2 rounded-b-2xl
-    transition-transform duration-300 ${isHidden ? "-translate-y-full" : "translate-y-0"}`}
+    transition-transform duration-300 ${
+      isHidden ? "-translate-y-full" : "translate-y-0"
+    }`}
       >
         {/* Logo + Text */}
         <Link to="/" className="flex items-center gap-2 cursor-pointer">
@@ -83,105 +99,114 @@ const handleAudioToggle = () => {
           <img
             src="images/logoText.svg"
             alt="Clarida Text"
-            className="w-[100px] h-[16] lg:w-[101.798px] lg:h-[16.742px] hidden md:flex"
+            className={
+              isMobile
+                ? "hidden"
+                : "w-[100px] h-4 lg:w-[101.798px] lg:h-[16.742px] flex"
+            }
           />
         </Link>
 
-        {/* Desktop / Tablet Nav */}
-        <nav className="hidden md:flex items-center gap-8 relative">
-          {/* Science Menu */}
-          <div
-            className="relative group"
-            onClick={() =>
-              setOpenSubmenu(openSubmenu === "science" ? null : "science")
-            }
-          >
-            <Link
-              to="#"
-              className="menu-text flex gap-2 items-center select-none"
+        {/* Desktop / Tablet Nav (ONLY when NOT mobile) */}
+        {!isMobile && (
+          <nav className="flex items-center gap-8 relative">
+            {/* Science Menu */}
+            <div
+              className="relative group"
+              onClick={() =>
+                setOpenSubmenu(openSubmenu === "science" ? null : "science")
+              }
             >
-              Science
-              <img
-                src="icons/arrowIcon.svg"
-                alt="Clarida Text"
-                className={`lg:mt-1.5 transition-transform duration-200 ${
-                  openSubmenu === "science"
-                    ? "rotate-180"
-                    : "group-hover:rotate-180"
-                }`}
+              <Link
+                to="#"
+                className="menu-text flex gap-2 items-center select-none"
+              >
+                Science
+                <img
+                  src="icons/arrowIcon.svg"
+                  alt="Clarida Text"
+                  className={`lg:mt-1.5 transition-transform duration-200 ${
+                    openSubmenu === "science"
+                      ? "rotate-180"
+                      : "group-hover:rotate-180"
+                  }`}
+                />
+              </Link>
+              <DropdownMenu
+                items={[
+                  { label: "Regeneration Biology", href: "#" },
+                  { label: "The Clarida Method", href: "#" },
+                  { label: "Timing Algorithm", href: "#" },
+                ]}
+                isOpen={openSubmenu === "science"}
+                onClose={() => setOpenSubmenu(null)}
               />
-            </Link>
-            <DropdownMenu
-              items={[
-                { label: "Regeneration Biology", href: "#" },
-                { label: "The Clarida Method", href: "#" },
-                { label: "Timing Algorithm", href: "#" },
-              ]}
-              isOpen={openSubmenu === "science"}
-              onClose={() => setOpenSubmenu(null)}
-            />
-          </div>
+            </div>
 
-          {/* Proof Menu */}
-          <div
-            className="relative group"
-            onClick={() =>
-              setOpenSubmenu(openSubmenu === "proof" ? null : "proof")
-            }
-          >
-            <Link
-              to="#"
-              className="menu-text flex gap-2 items-center select-none"
+            {/* Proof Menu */}
+            <div
+              className="relative group"
+              onClick={() =>
+                setOpenSubmenu(openSubmenu === "proof" ? null : "proof")
+              }
             >
-              Proof
-              <img
-                src="icons/arrowIcon.svg"
-                alt="Clarida Text"
-                className={`lg:mt-1.5 transition-transform duration-200 ${
-                  openSubmenu === "proof"
-                    ? "rotate-180"
-                    : "group-hover:rotate-180"
-                }`}
+              <Link
+                to="#"
+                className="menu-text flex gap-2 items-center select-none"
+              >
+                Proof
+                <img
+                  src="icons/arrowIcon.svg"
+                  alt="Clarida Text"
+                  className={`lg:mt-1.5 transition-transform duration-200 ${
+                    openSubmenu === "proof"
+                      ? "rotate-180"
+                      : "group-hover:rotate-180"
+                  }`}
+                />
+              </Link>
+              <DropdownMenu
+                items={[
+                  { label: "Patient Stories", href: "#" },
+                  { label: "Clinical Insights", href: "#" },
+                  { label: "Research Archive", href: "#" },
+                ]}
+                isOpen={openSubmenu === "proof"}
+                onClose={() => setOpenSubmenu(null)}
               />
-            </Link>
-            <DropdownMenu
-              items={[
-                { label: "Patient Stories", href: "#" },
-                { label: "Clinical Insights", href: "#" },
-                { label: "Research Archive", href: "#" },
-              ]}
-              isOpen={openSubmenu === "proof"}
-              onClose={() => setOpenSubmenu(null)}
-            />
-          </div>
+            </div>
 
-          {/* Regular menu items */}
-          <Link to="#" className="menu-text">
-            Vision Guide
-          </Link>
-          <Link to="#" className="menu-text">
-            About
-          </Link>
-          <Link to="/store" className="menu-text">
-            Store
-          </Link>
-        </nav>
+            {/* Regular menu items */}
+            <Link to="#" className="menu-text">
+              Vision Guide
+            </Link>
+            <Link to="#" className="menu-text">
+              About
+            </Link>
+            <Link to="/store" className="menu-text">
+              Store
+            </Link>
+          </nav>
+        )}
 
         {/* Right Side */}
         <div className="flex items-center gap-5 md:gap-4">
-          <Button
-            width="w-[170px] lg:w-[198.01px]"
-            height="h-[40px] lg:h-[39.994px]"
-            extra="gap-2 lg:gap-4 lg:py-[12px] lg:px-[12px] hidden md:flex"
-            variant="btn-header"
-          >
-            Begin your journey
-            <img
-              src="icons/arrowIcon.svg"
-              alt="Clarida Text"
-              className="rotate-270"
-            />
-          </Button>
+          {/* Desktop "Begin your journey" button (NOT mobile) */}
+          {!isMobile && (
+            <Button
+              width="w-[170px] lg:w-[198.01px]"
+              height="h-[40px] lg:h-[39.994px]"
+              extra="gap-2 lg:gap-4 lg:py-[12px] lg:px-[12px] hidden md:flex"
+              variant="btn-header"
+            >
+              Begin your journey
+              <img
+                src="icons/arrowIcon.svg"
+                alt="Clarida Text"
+                className="rotate-270"
+              />
+            </Button>
+          )}
 
           {/* AUDIO TOGGLE BUTTON */}
           <img
@@ -191,31 +216,36 @@ const handleAudioToggle = () => {
             className="border rounded-full w-8 h-8 md:w-9 md:h-9 lg:w-[39.994px] lg:h-[39.994px] p-[5px] hover:bg-[rgba(255,255,255,0.25)] cursor-pointer"
           />
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="menu-items-dropdown-text flex items-center gap-3 md:hidden transition duration-300 w-20 justify-center"
-          >
-            <span className="inline-block w-10 text-center">
-              {isMenuOpen ? "Close" : "Menu"}
-            </span>
-            {isMenuOpen ? <FiX size={27} /> : <FiMenu size={27} />}
-          </button>
+          {/* Mobile Menu Button (ONLY when mobile) */}
+          {isMobile && (
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="menu-items-dropdown-text flex items-center gap-3 transition duration-300 w-20 justify-center"
+            >
+              <span className="inline-block w-10 text-center">
+                {isMenuOpen ? "Close" : "Menu"}
+              </span>
+              {isMenuOpen ? <FiX size={27} /> : <FiMenu size={27} />}
+            </button>
+          )}
         </div>
       </header>
 
-      {isMenuOpen && (
+      {/* Mobile Menu Panel */}
+      {isMobile && isMenuOpen && (
         <div className="menu-text fixed top-0 left-0 w-full h-screen bg-(--color-bg) backdrop-blur-md flex flex-col gap-8 z-40">
           <div className="py-22 px-7 flex flex-col gap-3">
             <Link to="#" className="hover:text-cyan-400">
               Home
             </Link>
+
+            {/* Science */}
             <div className="relative">
               <Link
                 to="#"
                 className="menu-text flex justify-between items-center"
                 onClick={(e) => {
-                  e.preventDefault(); // prevent scrolling
+                  e.preventDefault();
                   setOpenSubmenu(openSubmenu === "science" ? null : "science");
                 }}
               >
@@ -241,12 +271,14 @@ const handleAudioToggle = () => {
                 />
               )}
             </div>
+
+            {/* Proof */}
             <div className="relative">
               <Link
                 to="#"
                 className="menu-text flex justify-between items-center"
                 onClick={(e) => {
-                  e.preventDefault(); // prevent scrolling
+                  e.preventDefault();
                   setOpenSubmenu(openSubmenu === "proof" ? null : "proof");
                 }}
               >
@@ -272,10 +304,12 @@ const handleAudioToggle = () => {
                 />
               )}
             </div>
+
             <Link to="#">Vision Guide AI</Link>
             <Link to="#">About Clarida</Link>
             <Link to="/store">Early Access/Store</Link>
           </div>
+
           <div className="py-4 px-8">
             <Button
               width="w-full"
