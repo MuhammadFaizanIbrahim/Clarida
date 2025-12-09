@@ -261,7 +261,7 @@ const ActivationTimeline = () => {
       </div>
 
       {/* BOTTOM ROTATING CIRCLE */}
-      <div className="pointer-events-none absolute -bottom-[21vh] md:-bottom-[30vh] lg:-bottom-[25%] 2xl:-bottom-[34vh] left-1/2 -translate-x-1/2 flex items-center justify-center">
+      <div className="pointer-events-none absolute -bottom-[21vh] md:-bottom-[30vh] lg:-bottom-[30vh] 2xl:-bottom-[34vh] left-1/2 -translate-x-1/2 flex items-center justify-center">
         <div
           ref={circleRef}
           className="relative w-[300px] md:w-[430px] lg:w-[350px] 2xl:w-[500px]

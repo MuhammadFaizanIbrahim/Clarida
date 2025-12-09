@@ -526,11 +526,14 @@ ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
   const getTickLeft = (index) => {
     const w = window.innerWidth;
 
-    if (w < 480) {
-      return `calc(65vw + ${index * tickSpacingVW}vw)`;
+    if (w <= 390) {
+      return `calc(65.5vw + ${index * tickSpacingVW}vw)`;
+    }
+    if (w <= 450) {
+      return `calc(56.5vw + ${index * tickSpacingVW}vw)`;
     }
     if (w < 768) {
-      return `calc(42.5vw + ${index * tickSpacingVW}vw)`;
+      return `calc(48.5vw + ${index * tickSpacingVW}vw)`;
     }
     if (w < 1024) {
       return `calc(55.8vw + ${index * tickSpacingVW}vw)`;

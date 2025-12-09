@@ -8,11 +8,11 @@ import { useMediaQuery } from "react-responsive";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const TOTAL_FRAMES = 150;
+const TOTAL_FRAMES = 75;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/GlobalCommunityImpact/frame_${index}.webp`;
+  return `/frames/GlobalCommunityImpactNew/frame_${index}.webp`;
 });
 
 const GlobalCommunityImpact = () => {
