@@ -3,4 +3,3 @@ file 'E:\Agency Works\Clarida\Clarida\public\videos\InteractiveRegeneration\inte
 file 'E:\Agency Works\Clarida\Clarida\public\videos\InteractiveRegeneration\interactive-regen_C.webm'
 file 'E:\Agency Works\Clarida\Clarida\public\videos\InteractiveRegeneration\interactive-regen_D.webm'
 file 'E:\Agency Works\Clarida\Clarida\public\videos\InteractiveRegeneration\interactive-regen_E.webm'
-file 'E:\Agency Works\Clarida\Clarida\public\videos\InteractiveRegeneration\interactive-regen_F.webm'

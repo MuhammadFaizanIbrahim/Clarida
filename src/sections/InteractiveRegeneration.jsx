@@ -8,17 +8,17 @@ import Button from "../components/Button.jsx";
 gsap.registerPlugin(ScrollTrigger);
 
 // ----------------- FRAME SETUP -----------------
-const TOTAL_FRAMES = 360;
+const TOTAL_FRAMES = 258;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/InteractiveRegeneration/frame_${index}.webp`;
+  return `/frames/InteractiveRegenerationNew/frame_${index}.webp`;
 });
 
 const FIRST_FRAME_SRC = framePaths[0];
 
 // key frames where each step should peak
-const STEP_KEY_FRAMES = [80, 160, 230, 280, 330];
+const STEP_KEY_FRAMES = [60, 110, 160, 200, 250];
 const FIRST_STORY_FRAME = STEP_KEY_FRAMES[0];
 
 // ----------------- TEXT STEPS -----------------
@@ -309,19 +309,15 @@ const InteractiveRegeneration = () => {
       const h = logicalHeightRef.current || canvas.clientHeight;
       if (!w || !h || !frames || !frames.length) return;
 
-      // Prefer exact frame
       let img = frames[frameIndex];
 
-      // If exact frame not loaded yet, find nearest loaded frame
       if (!img) {
-        // search backwards
         for (let i = frameIndex - 1; i >= 0; i--) {
           if (frames[i]) {
             img = frames[i];
             break;
           }
         }
-        // or forwards
         if (!img) {
           for (let i = frameIndex + 1; i < frames.length; i++) {
             if (frames[i]) {
@@ -332,7 +328,6 @@ const InteractiveRegeneration = () => {
         }
       }
 
-      // If still nothing is loaded yet, do nothing (first frame already drawn separately)
       if (!img) return;
 
       ctx2d.clearRect(0, 0, w, h);
@@ -340,7 +335,6 @@ const InteractiveRegeneration = () => {
     };
 
     if (prefersReducedMotion) {
-      // Just show last text, hide timeline; image is already on first frame
       storySteps.forEach((_, i) => {
         const el = textRefs.current[i];
         if (!el) return;
@@ -364,21 +358,20 @@ const InteractiveRegeneration = () => {
       willChange: "transform, opacity",
     });
 
-    const totalScroll = window.innerHeight * 4; // fixed scroll distance
+    const totalScroll = window.innerHeight * 4;
 
     const gsapCtx = gsap.context(() => {
       ScrollTrigger.create({
         trigger: section,
         start: "top top",
         end: "+=" + totalScroll,
-        scrub: 0.2, // slightly smoothed
+        scrub: 0.2,
         pin: true,
         anticipatePin: 0,
         invalidateOnRefresh: true,
         onUpdate: (self) => {
-          const progress = self.progress; // 0 → 1
+          const progress = self.progress;
 
-          // ----- FRAME SCRUB -----
           const rawIndex = progress * lastFrameIndex;
           const frameIndex = Math.min(
             lastFrameIndex,
@@ -390,7 +383,6 @@ const InteractiveRegeneration = () => {
             drawFrame(frameIndex);
           }
 
-          // ----- TIMELINE SLIDING IN FROM RIGHT -----
           let barX;
           const lastKeyFrame = STEP_KEY_FRAMES[STEP_KEY_FRAMES.length - 1];
 
@@ -441,7 +433,6 @@ const InteractiveRegeneration = () => {
             opacity: barOpacity,
           });
 
-          // ----- TEXT + TICK FOCUS -----
           const fadeFrames = 20;
           const maxY = 16;
 
