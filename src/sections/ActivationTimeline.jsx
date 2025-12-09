@@ -261,10 +261,10 @@ const ActivationTimeline = () => {
       </div>
 
       {/* BOTTOM ROTATING CIRCLE */}
-      <div className="pointer-events-none absolute -bottom-[21vh] md:-bottom-[30vh] lg:-bottom-[28vh] xl:-bottom-[35vh] 2xl:-bottom-[34vh] left-1/2 -translate-x-1/2 flex items-center justify-center">
+      <div className="pointer-events-none absolute -bottom-[21vh] md:-bottom-[30vh] lg:-bottom-[25vh] xl:-bottom-[28vh] 2xl:-bottom-[34vh] left-1/2 -translate-x-1/2 flex items-center justify-center">
         <div
           ref={circleRef}
-          className="relative w-[300px] md:w-[430px] lg:w-[350px] 2xl:w-[500px]
+          className="relative w-[300px] md:w-[430px] lg:w-[380px] xl:w-[400px] 2xl:w-[500px]
           aspect-square rounded-full border border-white/25"
         >
           {timelineSteps.map((step, index) => {
@@ -282,10 +282,10 @@ const ActivationTimeline = () => {
                   <img
                     src={step.orbitIcon}
                     alt={`Dose ${index + 1} icon`}
-                    className="mb-8 md:mb-10 lg:mb-5 2xl:mb-10 h-10 w-10 md:h-15 md:w-15 lg:h-13 lg:w-13 2xl:h-20 2xl:w-20"
+                    className="mb-8 md:mb-10 lg:mb-5 xl:mb-5 2xl:mb-10 h-10 w-10 md:h-15 md:w-15 lg:h-13 lg:w-13 2xl:h-20 2xl:w-20"
                   />
                 )}
-                <span className="section-4-circle-numbers-text mb-32 md:mb-45 lg:mb-37 2xl:mb-55">
+                <span className="section-4-circle-numbers-text mb-32 md:mb-45 lg:mb-40 xl:mb-45 2xl:mb-55">
                   {index + 1}
                 </span>
               </div>
