@@ -269,8 +269,6 @@ const Hero = () => {
             transition={{ duration: 1, delay: 1.2 }}
           >
             <Button
-              width="w-[263px] md:w-[250px] lg:w-[15.365vw]"
-              height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
               extra="gap-2 mt-5 lg:mt-9 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
             >
               Join The Vision Revolution

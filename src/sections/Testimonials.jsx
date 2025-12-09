@@ -365,7 +365,7 @@ const Testimonials = () => {
 
       {/* LEFT PANEL */}
       <div
-        className={`relative z-10 w-[350px] md:w-[290px] lg:w-[20.469vw] bg-white/5 backdrop-blur-[5px]
+        className={`relative z-10 w-[350px] md:w-[290px] lg:w-[350px] 2xl:w-[400px] bg-white/5 backdrop-blur-[5px]
         border border-white/50 rounded-lg px-[45px] py-5 md:p-[1.563vw]
         transition-opacity duration-500
         ${!isDesktop && "opacity-100"} ${
@@ -466,9 +466,7 @@ const Testimonials = () => {
           transition={{ duration: 1, delay: 1.2 }}
         >
           <Button
-            width="w-[263px] md:w-[250px] lg:w-[15.365vw]"
-            height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
-            extra="gap-2 mt-5 lg:mt-9 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
+            extra="gap-2 mt-5 lg:mt-9 lg:gap-4 lg:py-[12px] lg:px-[12px] whitespace-nowrap"
           >
             Join The Vision Revolution
             <img

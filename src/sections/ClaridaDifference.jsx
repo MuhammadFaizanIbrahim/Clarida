@@ -297,9 +297,7 @@ const ClaridaDifference = () => {
         </h2>
 
         {/* Button */}
-        <Button
-          width="w-[200px] md:w-[200px] lg:w-[12.365vw]"
-          height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
+        <Button          
           extra="gap-2 mt-5 lg:mt-9 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
         >
           Begin Your Journey

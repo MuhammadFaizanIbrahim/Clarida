@@ -281,10 +281,8 @@ const LifestyleVision = () => {
           </h1>
 
           {!isMobile && (
-            <Button
-              width="w-[235px] md:w-[250px] lg:w-[16.302vw]"
-              height="h-[48px] md:h-[48px] lg:h-[2.917vw]"
-              extra="gap-2 mt-5 md:mt-2 lg:mt-0 2xl:mt-2 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
+            <Button            
+              extra="gap-2 mt-5 md:mt-2 lg:mt-0 2xl:mt-2 lg:gap-4 lg:py-3 lg:px-5 flex"
             >
               Start Your Clarida Story Today
               <img

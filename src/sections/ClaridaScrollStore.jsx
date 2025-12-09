@@ -63,9 +63,7 @@ const ClaridaScrollStore = () => {
             variants={itemVariants}
             transition={{ duration: 1, delay: 1.2 }} // delay in seconds
           >
-            <Button
-              width="w-[235px] md:w-[220px] lg:w-[14.365vw]"
-              height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
+            <Button              
               extra="gap-2 mt-5 lg:mt-3 2xl:mt-6 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
             >
               Reserve My Early Access

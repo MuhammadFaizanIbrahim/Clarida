@@ -76,9 +76,7 @@ const Footer = () => {
           {/* Submit Button */}
           <div className="flex justify-center">
             <Button
-              type="submit" // add the submit type
-              width="w-[130px] md:w-[170px] lg:w-[9.427vw]"
-              height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
+              type="submit" // add the submit type              
               extra="gap-3 md:gap-4 flex"
             >
               {isMobile ? "Send" : "Send Inquiry"}

@@ -93,12 +93,12 @@ const Header = () => {
         <Link to="/" className="flex items-center gap-2 cursor-pointer">
           <img
             src="images/logoIcon.png"
-            alt="Clarida Logo"
+            alt=""
             className="lg:w-[36.173px] lg:h-[40.186px]"
           />
           <img
             src="images/logoText.svg"
-            alt="Clarida Text"
+            alt=""
             className={
               isMobile
                 ? "hidden"
@@ -124,7 +124,7 @@ const Header = () => {
                 Science
                 <img
                   src="icons/arrowIcon.svg"
-                  alt="Clarida Text"
+                  alt=""
                   className={`lg:mt-1.5 transition-transform duration-200 ${
                     openSubmenu === "science"
                       ? "rotate-180"
@@ -157,7 +157,7 @@ const Header = () => {
                 Proof
                 <img
                   src="icons/arrowIcon.svg"
-                  alt="Clarida Text"
+                  alt=""
                   className={`lg:mt-1.5 transition-transform duration-200 ${
                     openSubmenu === "proof"
                       ? "rotate-180"
@@ -194,24 +194,28 @@ const Header = () => {
           {/* Desktop "Begin your journey" button (NOT mobile) */}
           {!isMobile && (
             <Button
-              width="w-[170px] lg:w-[198.01px]"
-              height="h-[40px] lg:h-[39.994px]"
-              extra="gap-2 lg:gap-4 lg:py-[12px] lg:px-[12px] hidden md:flex"
-              variant="btn-header"
-            >
-              Begin your journey
-              <img
-                src="icons/arrowIcon.svg"
-                alt="Clarida Text"
-                className="rotate-270"
-              />
-            </Button>
+            variant="btn-header"
+            extra="
+              hidden md:inline-flex
+              md:px-4 md:py-2
+              lg:px-6 lg:py-3
+              lg:gap-4
+              whitespace-nowrap
+            "
+          >
+            Begin your journey
+            <img
+              src="icons/arrowIcon.svg"
+              alt=""
+              className="rotate-270"
+            />
+          </Button>          
           )}
 
           {/* AUDIO TOGGLE BUTTON */}
           <img
             src={isAudioOn ? "icons/audioOnIcon.svg" : "icons/audioOffIcon.svg"}
-            alt="Audio On/Off"
+            alt=""
             onClick={handleAudioToggle}
             className="border rounded-full w-8 h-8 md:w-9 md:h-9 lg:w-[39.994px] lg:h-[39.994px] p-[5px] hover:bg-[rgba(255,255,255,0.25)] cursor-pointer"
           />
@@ -252,7 +256,7 @@ const Header = () => {
                 Science & Regeneration
                 <img
                   src="icons/arrowIcon.svg"
-                  alt="Arrow"
+                  alt=""
                   className={`transition-transform duration-200 ${
                     openSubmenu === "science" ? "rotate-180" : ""
                   }`}
@@ -285,7 +289,7 @@ const Header = () => {
                 Proof & Results
                 <img
                   src="icons/arrowIcon.svg"
-                  alt="Arrow"
+                  alt=""
                   className={`transition-transform duration-200 ${
                     openSubmenu === "proof" ? "rotate-180" : ""
                   }`}
@@ -311,15 +315,17 @@ const Header = () => {
           </div>
 
           <div className="py-4 px-8">
-            <Button
-              width="w-full"
-              height="h-[48px]"
-              extra="gap-2 py-[24px] px-[12px] flex"
+          <Button
+              extra="
+                w-full
+                gap-2
+                py-3 px-3
+              "
             >
               Begin your journey
               <img
                 src="icons/arrowIcon.svg"
-                alt="Clarida Text"
+                alt=""
                 className="rotate-270"
               />
             </Button>

@@ -330,9 +330,7 @@ const GlobalCommunityImpact = () => {
           </div>
 
           {/* CTA Button */}
-          <Button
-            width="w-[250px] md:w-[220px] lg:w-[15vw]"
-            height="h-[48px] md:h-[45px] lg:h-[2.917vw]"
+          <Button           
             extra="gap-2 mt-5 lg:mt-10 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
             onClick={() => setIsOpen((prev) => !prev)}
           >

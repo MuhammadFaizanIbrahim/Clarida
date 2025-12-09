@@ -533,8 +533,6 @@ const InteractiveRegeneration2 = () => {
 
           {step.showButton && (
             <Button
-              width="w-[220px] md:w-[220px] lg:w-[15em]"
-              height="h-[48px] md:h-[46px] lg:h-[2.9vw]"
               extra="gap-2 lg:gap-3 lg:py-[10px] lg:px-[18px] flex"
             >
               Watch Full Explainer
