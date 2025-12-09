@@ -183,7 +183,7 @@ const ScientificInnovation = () => {
       <video
         className="absolute inset-0 w-full h-full object-cover"
         src="/videos/scientific.webm"
-        poster="scientific-bg.jpg"
+        poster="/images/scientific-bg.jpg"
         autoPlay
         loop
         muted

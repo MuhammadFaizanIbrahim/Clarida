@@ -197,7 +197,7 @@ const Hero = () => {
       <video
         className="absolute inset-0 w-full h-full object-cover"
         src="/videos/hero-bg.webm"
-        poster="hero-bg.png"
+        poster="/images/hero-bg.png"
         autoPlay
         loop
         muted

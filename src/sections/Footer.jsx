@@ -12,7 +12,7 @@ const Footer = () => {
       <video
         className="absolute inset-0 w-full h-full object-cover"
         src="/videos/footer.webm"
-        poster="footer-bg.png"
+        poster="/images/footer-bg.png"
         autoPlay
         loop
         muted

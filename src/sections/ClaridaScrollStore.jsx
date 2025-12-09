@@ -16,7 +16,7 @@ const ClaridaScrollStore = () => {
       <video
         className="absolute inset-0 w-full h-full object-cover"
         src="/videos/store-scroll.webm"
-        poster="store-bg.png"
+        poster="/images/store-bg.png"
         autoPlay
         // loop
         muted
