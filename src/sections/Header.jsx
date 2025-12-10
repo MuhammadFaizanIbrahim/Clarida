@@ -102,6 +102,13 @@ const Header = () => {
     });
   };
 
+  // 🔹 Delay closing the mobile menu so scroll-to-top can happen first
+  const closeMenuWithDelay = (delay = 200) => {
+    setTimeout(() => {
+      setIsMenuOpen(false);
+    }, delay);
+  };
+
   return (
     <>
       <header
@@ -258,11 +265,27 @@ const Header = () => {
         </div>
       </header>
 
-      {/* Mobile Menu Panel */}
-      {isMobile && isMenuOpen && (
-        <div className="menu-text fixed top-0 left-0 w-full h-screen bg-(--color-bg) backdrop-blur-md flex flex-col gap-8 z-40">
+      {/* Mobile Menu Panel – always rendered on mobile, animated with opacity/translate */}
+      {isMobile && (
+        <div
+          className={`
+            menu-text fixed top-0 left-0 w-full h-screen bg-(--color-bg)
+            backdrop-blur-md flex flex-col gap-8 z-40
+            transition-all duration-300
+            ${
+              isMenuOpen
+                ? "opacity-100 translate-y-0 pointer-events-auto"
+                : "opacity-0 -translate-y-4 pointer-events-none"
+            }
+          `}
+        >
           <div className="py-22 px-7 flex flex-col gap-3">
-            <Link to="#" className="hover:text-cyan-400">
+            {/* Close menu on click */}
+            <Link
+              to="#"
+              className="hover:text-cyan-400"
+              onClick={() => closeMenuWithDelay()}
+            >
               Home
             </Link>
 
@@ -332,9 +355,23 @@ const Header = () => {
               )}
             </div>
 
-            <Link to="#">Vision Guide AI</Link>
-            <Link to="#">About Clarida</Link>
-            <Link to="/store">
+            {/* These close the menu on click */}
+            <Link
+              to="#"
+              onClick={() => closeMenuWithDelay()}
+            >
+              Vision Guide AI
+            </Link>
+            <Link
+              to="#"
+              onClick={() => closeMenuWithDelay()}
+            >
+              About Clarida
+            </Link>
+            <Link
+              to="/store"
+              onClick={() => closeMenuWithDelay()}
+            >
               Early Access/Store
             </Link>
           </div>
