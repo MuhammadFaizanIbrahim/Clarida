@@ -26,7 +26,7 @@ html, body {
 
   --h3-size: 2.708vw; /* 52px */
   --h3-weight: 500;
-  --h3-line-height: 72px;
+  --h3-line-height: 138.462%; /*72px*/
   --h3-letter-spacing: 0.02em;
 
   --hero-top-text-size: 1.667vw; /* 32px */
@@ -36,7 +36,7 @@ html, body {
 
   --hero-p-normal-size: 1.25vw; /* 24px */
   --hero-p-normal-weight: 500;
-  --hero-p-normal-line-height: 42px;
+  --hero-p-normal-line-height: 175%; /*42px;*/
   --hero-p-normal-letter-spacing: 0.02em;
 
   --btn-header-text-size: 0.833vw; /* 16px */
@@ -47,12 +47,12 @@ html, body {
 
   --nav-menu-text-size: 1.042vw; /* 20px */
   --nav-menu-text-weight: 500;
-  --nav-menu-text-line-height: 42px;
+  --nav-menu-text-line-height: 210%; /* 42px */
   --nav-menu-text-letter-spacing: 0.02em;
 
   --nav-menu-items-size: 0.938vw; /* 18px */
   --nav-menu-items-weight: 500;
-  --nav-menu-items-line-height: 42px;
+  --nav-menu-items-line-height: 233.333%; /*42px*/
   --nav-menu-items-letter-spacing: 0%;
 
   --section-3-size: 3.229vw; /* 62px */
@@ -62,17 +62,17 @@ html, body {
 
   --sections-para-size: 1.667vw; /* 32px */
   --sections-para-weight: 500;
-  --sections-para-line-height: 42px;
+  --sections-para-line-height: 131.25%; /*42px*/
   --sections-para-letter-spacing: 0.02em; /* 2% */
 
   --section-4-para-Text-size: 1.667vw; /* 32px */
   --section-4-para-Text-weight: 500;
-  --section-4-para-Text-line-height: 42px;
+  --section-4-para-Text-line-height: 150%; /*48px*/
   --section-4-para-Text-letter-spacing: 0.02em; /* 2% */
 
   --section-3-names-text-size: 1.563vw; /* 30px */
   --section-3-names-text-weight: 500;
-  --section-3-names-text-line-height: 56px;
+  --section-3-names-text-line-height: 186.667%;  /* 56px */
   --section-3-names-text-letter-spacing: 0.02em; /* 2% */
 
   --section-3-small-heading-size: 2.188vw; /* 42px */
@@ -102,7 +102,7 @@ html, body {
 
   --ScrollText-size: 12px
   --ScrollText-weight: 500;
-  --ScrollText-line-height: 26px;
+  --ScrollText-line-height: 216.667%; /* 26px */
   --ScrollText-letter-spacing: 0%;
 
   --section-5-text-size: 3.958vw; /* 76px */
@@ -156,7 +156,7 @@ html, body {
     --footer-small-text-size: 14px;
 
     /* added: was only defined on desktop */
-    --ScrollText-size: 12px;
+    --ScrollText-size: 10px;
   }
 }
 
@@ -206,7 +206,7 @@ html, body {
     --footer-small-text-bold-line-height: 140%;
 
     /* added: desktop-only var, keep same px value here */
-    --ScrollText-size: 12px;
+    --ScrollText-size: 8px;
   }
 }
 

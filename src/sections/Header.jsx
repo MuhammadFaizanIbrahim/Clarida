@@ -82,7 +82,7 @@ const Header = () => {
   return (
     <>
       <header
-        className={`fixed left-1/2 -translate-x-1/2 z-50 w-full lg:w-[85.208vw] h-[55px] md:h-[70px] lg:h-[60px] 
+        className={`fixed left-1/2 -translate-x-1/2 z-50 w-full xl:w-[85.208vw] h-[55px] md:h-[70px] lg:h-[60px] 
       bg-white/10 backdrop-blur-md text-(--color-text) 
     flex items-center justify-between lg:px-5 lg:py-3 px-8 py-2 rounded-b-2xl
     transition-transform duration-300 ${
