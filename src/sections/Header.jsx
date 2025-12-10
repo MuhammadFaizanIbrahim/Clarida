@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FiVolume2, FiMenu, FiX, FiArrowRight } from "react-icons/fi";
 import Button from "../components/Button";
 import DropdownMenu from "../components/DropdownMenuBox";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -11,10 +11,33 @@ const Header = () => {
   // hide/show on scroll
   const [isHidden, setIsHidden] = useState(false);
 
-  // NEW: global audio toggle state
+  // global audio toggle state
   const [isAudioOn, setIsAudioOn] = useState(false);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 960);
+
+  const location = useLocation(); // track current route
+
+  // 🔹 ALWAYS scroll to top on route change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const scrollNow = () => {
+      // if using Lenis globally
+      if (window.lenis && typeof window.lenis.scrollTo === "function") {
+        window.lenis.scrollTo(0, { immediate: true });
+      } else {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      }
+    };
+
+    // run once immediately
+    scrollNow();
+    // run again shortly after layout / GSAP / Lenis settle
+    const id = setTimeout(scrollNow, 50);
+
+    return () => clearTimeout(id);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (
@@ -25,7 +48,7 @@ const Header = () => {
     }
   }, []);
 
-  // NEW: resize listener for mobile detection
+  // resize listener for mobile detection
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 960);
@@ -60,7 +83,7 @@ const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isMenuOpen]);
 
-  // NEW: audio button handler
+  // audio button handler
   const handleAudioToggle = () => {
     setIsAudioOn((prev) => {
       const next = !prev;
@@ -194,22 +217,22 @@ const Header = () => {
           {/* Desktop "Begin your journey" button (NOT mobile) */}
           {!isMobile && (
             <Button
-            variant="btn-header"
-            extra="
+              variant="btn-header"
+              extra="
               hidden md:inline-flex
               md:px-4 md:py-2
               lg:px-6 lg:py-3
               lg:gap-4
               whitespace-nowrap
             "
-          >
-            Begin your journey
-            <img
-              src="icons/arrowIcon.svg"
-              alt=""
-              className="rotate-270"
-            />
-          </Button>          
+            >
+              Begin your journey
+              <img
+                src="icons/arrowIcon.svg"
+                alt=""
+                className="rotate-270"
+              />
+            </Button>
           )}
 
           {/* AUDIO TOGGLE BUTTON */}
@@ -311,11 +334,13 @@ const Header = () => {
 
             <Link to="#">Vision Guide AI</Link>
             <Link to="#">About Clarida</Link>
-            <Link to="/store">Early Access/Store</Link>
+            <Link to="/store">
+              Early Access/Store
+            </Link>
           </div>
 
           <div className="py-4 px-8">
-          <Button
+            <Button
               extra="
                 w-full
                 gap-2
