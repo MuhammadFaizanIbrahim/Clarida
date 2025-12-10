@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FiVolume2, FiMenu, FiX, FiArrowRight } from "react-icons/fi";
+import {FiMenu, FiX} from "react-icons/fi";
 import Button from "../components/Button";
 import DropdownMenu from "../components/DropdownMenuBox";
 import { Link, useLocation } from "react-router-dom";

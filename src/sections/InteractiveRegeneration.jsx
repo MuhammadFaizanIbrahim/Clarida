@@ -66,6 +66,19 @@ const InteractiveRegeneration = () => {
   const isInViewRef = useRef(false);
   const isAudioOnRef = useRef(false);
 
+  // 🔹 viewport width state so tick positions update on resize
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1024
+  );
+
+  useEffect(() => {
+    const handleResizeVW = () => {
+      setViewportWidth(window.innerWidth);
+    };
+    window.addEventListener("resize", handleResizeVW);
+    return () => window.removeEventListener("resize", handleResizeVW);
+  }, []);
+
   // ---------- FADE HELPER ----------
   const clearFadeInterval = () => {
     if (fadeIntervalRef.current) {
@@ -174,41 +187,43 @@ const InteractiveRegeneration = () => {
 
     img.onload = () => {
       const dpr = window.devicePixelRatio || 1;
-      const rect = section.getBoundingClientRect();
 
-      logicalWidthRef.current = rect.width;
-      logicalHeightRef.current = rect.height;
+      // 🔹 use viewport size instead of section rect
+      const width = window.innerWidth;
+      const height = window.innerHeight;
 
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      logicalWidthRef.current = width;
+      logicalHeightRef.current = height;
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      ctx2d.clearRect(0, 0, rect.width, rect.height);
+      ctx2d.clearRect(0, 0, width, height);
 
-// COVER MATH
-const imgW = img.naturalWidth;
-const imgH = img.naturalHeight;
-const imgAspect = imgW / imgH;
-const canvasAspect = rect.width / rect.height;
+      // COVER MATH
+      const imgW = img.naturalWidth;
+      const imgH = img.naturalHeight;
+      const imgAspect = imgW / imgH;
+      const canvasAspect = width / height;
 
-let drawW, drawH, offsetX, offsetY;
+      let drawW, drawH, offsetX, offsetY;
 
-if (imgAspect > canvasAspect) {
-  // image is wider → match height, crop sides
-  drawH = rect.height;
-  drawW = drawH * imgAspect;
-  offsetX = (rect.width - drawW) / 2;
-  offsetY = 0;
-} else {
-  // image is taller/narrower → match width, crop top/bottom
-  drawW = rect.width;
-  drawH = drawW / imgAspect;
-  offsetX = 0;
-  offsetY = (rect.height - drawH) / 2;
-}
+      if (imgAspect > canvasAspect) {
+        // image is wider → match height, crop sides
+        drawH = height;
+        drawW = drawH * imgAspect;
+        offsetX = (width - drawW) / 2;
+        offsetY = 0;
+      } else {
+        // image is taller/narrower → match width, crop top/bottom
+        drawW = width;
+        drawH = drawW / imgAspect;
+        offsetX = 0;
+        offsetY = (height - drawH) / 2;
+      }
 
-ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
-
+      ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
     };
   }, []);
 
@@ -312,21 +327,7 @@ ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
-    const resizeCanvas = () => {
-      const rect = section.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-
-      logicalWidthRef.current = rect.width;
-      logicalHeightRef.current = rect.height;
-
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-
+    // 🔹 drawFrame defined before resizeCanvas so we can call it there
     const drawFrame = (frameIndex) => {
       const frames = preloadedFramesRef.current;
       const w = logicalWidthRef.current || canvas.clientWidth;
@@ -356,31 +357,56 @@ ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
 
       ctx2d.clearRect(0, 0, w, h);
 
-// COVER MATH
-const imgW = img.naturalWidth;
-const imgH = img.naturalHeight;
-const imgAspect = imgW / imgH;
-const canvasAspect = w / h;
+      // COVER MATH
+      const imgW = img.naturalWidth;
+      const imgH = img.naturalHeight;
+      const imgAspect = imgW / imgH;
+      const canvasAspect = w / h;
 
-let drawW, drawH, offsetX, offsetY;
+      let drawW, drawH, offsetX, offsetY;
 
-if (imgAspect > canvasAspect) {
-  // image is wider than canvas → fit height, crop sides
-  drawH = h;
-  drawW = drawH * imgAspect;
-  offsetX = (w - drawW) / 2;
-  offsetY = 0;
-} else {
-  // image is taller (or equal) → fit width, crop top/bottom
-  drawW = w;
-  drawH = drawW / imgAspect;
-  offsetX = 0;
-  offsetY = (h - drawH) / 2;
-}
+      if (imgAspect > canvasAspect) {
+        // image is wider than canvas → fit height, crop sides
+        drawH = h;
+        drawW = drawH * imgAspect;
+        offsetX = (w - drawW) / 2;
+        offsetY = 0;
+      } else {
+        // image is taller (or equal) → fit width, crop top/bottom
+        drawW = w;
+        drawH = drawW / imgAspect;
+        offsetX = 0;
+        offsetY = (h - drawH) / 2;
+      }
 
-ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
-
+      ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
     };
+
+    const resizeCanvas = () => {
+      const dpr = window.devicePixelRatio || 1;
+
+      // 🔹 use viewport size instead of section rect
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      logicalWidthRef.current = width;
+      logicalHeightRef.current = height;
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // 🔹 redraw current frame after resize
+      const currentIndex =
+        lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
+      drawFrame(currentIndex);
+
+      // 🔹 refresh ScrollTrigger so its math matches new sizes
+      ScrollTrigger.refresh();
+    };
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
 
     if (prefersReducedMotion) {
       storySteps.forEach((_, i) => {
@@ -421,10 +447,7 @@ ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
           const progress = self.progress;
 
           const rawIndex = progress * lastFrameIndex;
-          const frameIndex = Math.min(
-            lastFrameIndex,
-            Math.floor(rawIndex)
-          );
+          const frameIndex = Math.min(lastFrameIndex, Math.floor(rawIndex));
 
           if (frameIndex !== lastFrameIndexRef.current) {
             lastFrameIndexRef.current = frameIndex;
@@ -471,8 +494,7 @@ ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
             barOpacity = 1;
           } else {
             const t =
-              (frameIndex - FADE_IN_START) /
-              (FADE_IN_END - FADE_IN_START || 1);
+              (frameIndex - FADE_IN_START) / (FADE_IN_END - FADE_IN_START || 1);
             barOpacity = t;
           }
 
@@ -524,7 +546,7 @@ ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
   const timeBarWidthVWMobile = timeBarWidthVW;
 
   const getTickLeft = (index) => {
-    const w = window.innerWidth;
+    const w = viewportWidth;
 
     if (w <= 390) {
       return `calc(65.5vw + ${index * tickSpacingVW}vw)`;
@@ -583,9 +605,7 @@ ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
           <p className="h3-text">{step.text}</p>
 
           {step.showButton && (
-            <Button
-              extra="gap-2 lg:gap-3 lg:py-[10px] lg:px-[18px] flex"
-            >
+            <Button extra="gap-2 lg:gap-3 lg:py-[10px] lg:px-[18px] flex">
               Watch Full Explainer
               <img
                 src="icons/arrowIcon.svg"
