@@ -558,36 +558,48 @@ const InteractiveRegeneration = () => {
   const timeBarWidthVWTablet = timeBarWidthVW;
   const timeBarWidthVWMobile = timeBarWidthVW;
 
+     // 🔹 NEW: geometry-based tick positions for ALL breakpoints
   const getTickLeft = (index) => {
     const w = viewportWidth;
+    const trackWidthVW = timeBarWidthVW; // 500
+    let lineStartVW;
+    let lineEndVW;
 
-    // MOBILE: compute from the real track width (500vw) and the line’s left/right
     if (w < 768) {
-      const trackWidthVW = timeBarWidthVWMobile; // 500
-      const lineLeftPx = 16 * 16; // Tailwind left-64 => 16rem => 256px
-      const lineRightVW = 34.5; // right-[34.5vw]
-
-      // convert the fixed 256px offset to vw
-      const lineStartVW = (lineLeftPx / w) * 100;
-      // line end is at the far end of the 500vw track minus 34.5vw
-      const lineEndVW = trackWidthVW - lineRightVW;
-
-      const spanVW = lineEndVW - lineStartVW;
-      const stepVW = spanVW / (tickCount - 1);
-
-      const posVW = lineStartVW + index * stepVW;
-      return `${posVW}vw`;
+      // mobile: left-64 (256px) and right-[34.5vw]
+      const lineLeftPx = 16 * 16; // 16rem
+      const lineRightVW = 34.5;
+      lineStartVW = (lineLeftPx / w) * 100;
+      lineEndVW = trackWidthVW - lineRightVW;
+    } else if (w < 1024) {
+      // md: left-[55.87vw] right-[44.1vw]
+      const lineLeftVW = 55.87;
+      const lineRightVW = 44.1;
+      lineStartVW = lineLeftVW;
+      lineEndVW = trackWidthVW - lineRightVW;
+    } else if (w < 1536) {
+      // lg / xl range (Tailwind lg breakpoint up to < 2xl)
+      // lg: left-[56.2vw], right inherits md: [44.1vw]
+      const lineLeftVW = 56.2;
+      const lineRightVW = 44.1;
+      lineStartVW = lineLeftVW;
+      lineEndVW = trackWidthVW - lineRightVW;
+    } else {
+      // 2xl: left-[54.2vw] right-[45.73vw]
+      const lineLeftVW = 54.2;
+      const lineRightVW = 45.73;
+      lineStartVW = lineLeftVW;
+      lineEndVW = trackWidthVW - lineRightVW;
     }
 
-    // TABLET / DESKTOP: keep your original tuning
-    if (w < 1024) {
-      return `calc(55.8vw + ${index * tickSpacingVW}vw)`;
-    }
-    if (w < 1500) {
-      return `calc(56.15vw + ${index * tickSpacingVW}vw)`;
-    }
-    return `calc(54.2vw + ${index * tickSpacingVW}vw)`;
+    const spanVW = lineEndVW - lineStartVW;
+    const stepVW = spanVW / (tickCount - 1);
+    const posVW = lineStartVW + index * stepVW;
+
+    return `${posVW}vw`;
   };
+
+  
 
   return (
     <section
