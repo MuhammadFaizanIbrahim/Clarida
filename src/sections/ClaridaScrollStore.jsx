@@ -18,7 +18,7 @@ const ClaridaScrollStore = () => {
         src="/videos/store-scroll.webm"
         poster="/images/store-bg.png"
         autoPlay
-        // loop
+        loop
         muted
         playsInline
       ></video>

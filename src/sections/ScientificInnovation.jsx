@@ -185,7 +185,7 @@ const ScientificInnovation = () => {
         src="/videos/scientific.webm"
         poster="/images/scientific-bg.jpg"
         autoPlay
-        loop
+        // loop
         muted
         playsInline
       ></video>
