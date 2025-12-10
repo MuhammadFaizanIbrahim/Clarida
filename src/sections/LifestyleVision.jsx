@@ -56,37 +56,40 @@ const LifestyleVision = () => {
 
     img.onload = () => {
       const dpr = window.devicePixelRatio || 1;
-      const rect = section.getBoundingClientRect();
 
-      logicalWidthRef.current = rect.width;
-      logicalHeightRef.current = rect.height;
+      // ✅ use viewport size (like InteractiveRegeneration fix)
+      const width = window.innerWidth;
+      const height = window.innerHeight;
 
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
+      logicalWidthRef.current = width;
+      logicalHeightRef.current = height;
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const imgW = img.naturalWidth;
       const imgH = img.naturalHeight;
       const imgAspect = imgW / imgH;
-      const canvasAspect = rect.width / rect.height;
+      const canvasAspect = width / height;
 
       let drawW, drawH, offsetX, offsetY;
 
       if (imgAspect > canvasAspect) {
         // image wider → match height, crop sides
-        drawH = rect.height;
+        drawH = height;
         drawW = drawH * imgAspect;
-        offsetX = (rect.width - drawW) / 2;
+        offsetX = (width - drawW) / 2;
         offsetY = 0;
       } else {
         // taller/narrower → match width, crop top/bottom
-        drawW = rect.width;
+        drawW = width;
         drawH = drawW / imgAspect;
         offsetX = 0;
-        offsetY = (rect.height - drawH) / 2;
+        offsetY = (height - drawH) / 2;
       }
 
-      ctx2d.clearRect(0, 0, rect.width, rect.height);
+      ctx2d.clearRect(0, 0, width, height);
       ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
     };
   }, []);
@@ -103,23 +106,6 @@ const LifestyleVision = () => {
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
-
-    const resizeCanvas = () => {
-      const rect = section.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-
-      logicalWidthRef.current = rect.width;
-      logicalHeightRef.current = rect.height;
-
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      // redraw last frame on resize
-      const lastIndex =
-        lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
-      drawFrame(lastIndex);
-    };
 
     const drawFrame = (frameIndex) => {
       const frames = preloadedFramesRef.current;
@@ -173,6 +159,29 @@ const LifestyleVision = () => {
       }
 
       ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+    };
+
+    const resizeCanvas = () => {
+      const dpr = window.devicePixelRatio || 1;
+
+      // ✅ use viewport here as well
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      logicalWidthRef.current = width;
+      logicalHeightRef.current = height;
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // redraw last frame on resize
+      const lastIndex =
+        lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
+      drawFrame(lastIndex);
+
+      // make sure ScrollTrigger recalculates pin/positions
+      ScrollTrigger.refresh();
     };
 
     resizeCanvas();
@@ -281,7 +290,7 @@ const LifestyleVision = () => {
           </h1>
 
           {!isMobile && (
-            <Button            
+            <Button
               extra="gap-2 mt-5 md:mt-2 lg:mt-0 2xl:mt-2 lg:gap-4 lg:py-3 lg:px-5 flex"
             >
               Start Your Clarida Story Today
