@@ -127,8 +127,8 @@ html, body {
   --color-ocular-rose-gold: #D8A6A1;
 }
 
-/* Tablet (max-width: 1024px) */
-@media (max-width: 1025px) {
+/* Tablet (max-width: 1023px) */
+@media (max-width: 1023px) {
   :root {
     --h1-size: 54px;
     --h2-size: 48px;
