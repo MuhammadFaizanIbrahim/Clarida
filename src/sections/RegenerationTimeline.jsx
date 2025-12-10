@@ -4,7 +4,7 @@ import React, {
   useRef,
   useState,
   useMemo,
-  useEffect,         // ⬅️ added
+  useEffect, // ⬅️ added
 } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -109,6 +109,7 @@ const RegenerationTimeline = () => {
   const sectionRef = useRef(null);
   const trackRef = useRef(null);
   const timeBarRef = useRef(null);
+  const scrollTriggerRef = useRef(null); // 👈 for scroll-to-end
 
   const [stepIndex, setStepIndex] = useState(0);
   const stepIndexRef = useRef(0);
@@ -319,7 +320,7 @@ const RegenerationTimeline = () => {
     };
   }, []);
 
-  // ---------- EXISTING GSAP / SCROLL LOGIC (unchanged) ----------
+  // ---------- EXISTING GSAP / SCROLL LOGIC ----------
   useLayoutEffect(() => {
     const section = sectionRef.current;
     const track = trackRef.current;
@@ -329,7 +330,7 @@ const RegenerationTimeline = () => {
     const totalScroll = track.scrollWidth - window.innerWidth;
 
     const ctx = gsap.context(() => {
-      gsap.to([track, timeBar], {
+      const tween = gsap.to([track, timeBar], {
         x: -totalScroll,
         ease: "none",
         scrollTrigger: {
@@ -389,6 +390,9 @@ const RegenerationTimeline = () => {
           },
         },
       });
+
+      // 👇 store ScrollTrigger instance for scroll-to-end
+      scrollTriggerRef.current = tween.scrollTrigger;
     }, section);
 
     return () => ctx.revert();
@@ -402,6 +406,31 @@ const RegenerationTimeline = () => {
   const timeBarWidthVW = tickCount * tickSpacingVW;
   const timeBarWidthVWTablet = tickCount * tickSpacingVW;
   const timeBarWidthVWMobile = tickCount * tickSpacingVW;
+
+  // 👇 handler to scroll smoothly to the end of this section
+  const handleScrollToEnd = () => {
+    const st = scrollTriggerRef.current;
+    if (!st) return;
+
+    const target = st.end; // absolute scroll position
+    const scroller = st.scroller || window;
+
+    if (
+      scroller === window ||
+      scroller === document.documentElement ||
+      scroller === document.body
+    ) {
+      window.scrollTo({
+        top: target,
+        behavior: "smooth",
+      });
+    } else {
+      scroller.scrollTo({
+        top: target,
+        behavior: "smooth",
+      });
+    }
+  };
 
   return (
     <section
@@ -572,7 +601,8 @@ const RegenerationTimeline = () => {
         <img
           src="icons/arrowIcon.svg"
           alt="Scroll"
-          className="border-2 border-white rounded-full p-3 h-10 w-10 cursor-pointer"
+          className="border-2 border-white rounded-full p-3 h-10 w-10 cursor-pointer hover:bg-[rgba(255,255,255,0.25)]"
+          onClick={handleScrollToEnd}
         />
         Scroll
       </div>
