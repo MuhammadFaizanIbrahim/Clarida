@@ -70,10 +70,16 @@ const InteractiveRegeneration = () => {
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1024
   );
+  // 🔹 ref mirror used inside GSAP (so we don't re-init ScrollTrigger)
+  const viewportWidthRef = useRef(
+    typeof window !== "undefined" ? window.innerWidth : 1024
+  );
 
   useEffect(() => {
     const handleResizeVW = () => {
-      setViewportWidth(window.innerWidth);
+      const w = window.innerWidth;
+      setViewportWidth(w);
+      viewportWidthRef.current = w;
     };
     window.addEventListener("resize", handleResizeVW);
     return () => window.removeEventListener("resize", handleResizeVW);
@@ -401,6 +407,11 @@ const InteractiveRegeneration = () => {
         lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
       drawFrame(currentIndex);
 
+      // keep timebar starting just off-screen to the right for new width
+      gsap.set(timeBar, {
+        x: viewportWidthRef.current,
+      });
+
       // 🔹 refresh ScrollTrigger so its math matches new sizes
       ScrollTrigger.refresh();
     };
@@ -423,11 +434,9 @@ const InteractiveRegeneration = () => {
     }
 
     const lastFrameIndex = TOTAL_FRAMES - 1;
-    const vw = window.innerWidth;
-    const segmentShift = vw;
 
     gsap.set(timeBar, {
-      x: vw,
+      x: viewportWidthRef.current,
       opacity: 0,
       willChange: "transform, opacity",
     });
@@ -453,6 +462,10 @@ const InteractiveRegeneration = () => {
             lastFrameIndexRef.current = frameIndex;
             drawFrame(frameIndex);
           }
+
+          // 🔹 always use the latest viewport width here
+          const vw = viewportWidthRef.current;
+          const segmentShift = vw;
 
           let barX;
           const lastKeyFrame = STEP_KEY_FRAMES[STEP_KEY_FRAMES.length - 1];
@@ -536,7 +549,7 @@ const InteractiveRegeneration = () => {
       window.removeEventListener("resize", resizeCanvas);
       gsapCtx.revert();
     };
-  }, []);
+  }, []); // 🔹 stable GSAP setup – no re-init on viewportWidth changes
 
   // TIMELINE GEOMETRY – same style as before
   const tickCount = storySteps.length;
@@ -548,15 +561,25 @@ const InteractiveRegeneration = () => {
   const getTickLeft = (index) => {
     const w = viewportWidth;
 
-    if (w <= 390) {
-      return `calc(65.5vw + ${index * tickSpacingVW}vw)`;
-    }
-    if (w <= 450) {
-      return `calc(56.5vw + ${index * tickSpacingVW}vw)`;
-    }
+    // MOBILE: compute from the real track width (500vw) and the line’s left/right
     if (w < 768) {
-      return `calc(48.5vw + ${index * tickSpacingVW}vw)`;
+      const trackWidthVW = timeBarWidthVWMobile; // 500
+      const lineLeftPx = 16 * 16; // Tailwind left-64 => 16rem => 256px
+      const lineRightVW = 34.5; // right-[34.5vw]
+
+      // convert the fixed 256px offset to vw
+      const lineStartVW = (lineLeftPx / w) * 100;
+      // line end is at the far end of the 500vw track minus 34.5vw
+      const lineEndVW = trackWidthVW - lineRightVW;
+
+      const spanVW = lineEndVW - lineStartVW;
+      const stepVW = spanVW / (tickCount - 1);
+
+      const posVW = lineStartVW + index * stepVW;
+      return `${posVW}vw`;
     }
+
+    // TABLET / DESKTOP: keep your original tuning
     if (w < 1024) {
       return `calc(55.8vw + ${index * tickSpacingVW}vw)`;
     }
@@ -569,7 +592,7 @@ const InteractiveRegeneration = () => {
   return (
     <section
       ref={sectionRef}
-      className="relative h-screen w-screen overflow-hidden flex items-center justify-center"
+      className="relative h-screen w-screen overflow-hidden flex items-center justify_center"
       style={{
         backgroundImage: `url(${FIRST_FRAME_SRC})`,
         backgroundSize: "cover",
@@ -588,7 +611,7 @@ const InteractiveRegeneration = () => {
       />
 
       {/* Dark overlay for readability */}
-      <div className="absolute inset-0 bg-black/30 md:bg-black/35 lg:bg-black/40 pointer-events-none" />
+      <div className="absolute inset-0 bg-black/30 md:bg_black/35 lg:bg-black/40 pointer-events-none" />
 
       {/* TEXT OVERLAYS */}
       {storySteps.map((step, index) => (
@@ -635,7 +658,7 @@ const InteractiveRegeneration = () => {
       >
         <div className="relative h-[60px]">
           <div
-            className="absolute h-px left-64 md:left-[55.87vw] lg:left-[56.2vw] 2xl:left-[54.2vw] right-[34.5vw] md:right-[44.1vw] lg:right-[43.73vw] 2xl:right-[45.73vw] bg-(--color-text)"
+            className="absolute h-px left-64 md:left-[55.87vw] lg:left-[56.2vw] 2xl:left-[54.2vw] right-[34.5vw] md:right-[44.1vw] lg:right_[43.73vw] 2xl:right-[45.73vw] bg-(--color-text)"
             style={{
               top: "50%",
               transform: "translateY(-50%)",
