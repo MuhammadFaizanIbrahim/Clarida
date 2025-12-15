@@ -18,6 +18,10 @@ const Hero = () => {
   const [isInView, setIsInView] = useState(false);
   const [isAudioOn, setIsAudioOn] = useState(false);
 
+  // 🔹 NEW: lazy-load media state
+  const [videoSrc, setVideoSrc] = useState(null);
+  const [posterSrc, setPosterSrc] = useState(null);
+
   // keep latest values to avoid stale closures
   const isInViewRef = useRef(false);
   const isAudioOnRef = useRef(false);
@@ -135,6 +139,31 @@ const Hero = () => {
     };
   }, []);
 
+  // ------------- LAZY-LOAD BACKGROUND VIDEO & POSTER -------------
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // only set once
+            setVideoSrc("/videos/hero-bg.webm");
+            setPosterSrc("/images/hero-bg.png");
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  }, []);
+
   // ------------- HANDLE GLOBAL AUDIO TOGGLE EVENTS -------------
 
   useEffect(() => {
@@ -196,12 +225,13 @@ const Hero = () => {
       {/* Background Video */}
       <video
         className="absolute inset-0 w-full h-full object-cover"
-        src="/videos/hero-bg.webm"
-        poster="/images/hero-bg.png"
-        autoPlay
+        src={videoSrc || undefined}
+        poster={posterSrc || undefined}
+        autoPlay={!!videoSrc}
         loop
         muted
         playsInline
+        preload="none"
       ></video>
 
       {/* 🔊 HERO AUDIO */}
