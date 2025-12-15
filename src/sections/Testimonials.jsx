@@ -157,6 +157,11 @@ const Testimonials = () => {
   const isInViewRef = useRef(false);
   const isAudioOnRef = useRef(false);
 
+  // 🔹 NEW: lazy-load media state
+  const [mediaEnabled, setMediaEnabled] = useState(false);
+  const [bgSrc, setBgSrc] = useState(null);
+  const [videoSrc, setVideoSrc] = useState(null);
+
   // ---------- FADE HELPER (same pattern as hero, but for video) ----------
   const clearFadeInterval = () => {
     if (fadeIntervalRef.current) {
@@ -271,6 +276,40 @@ const Testimonials = () => {
     };
   }, []);
 
+  // 🔹 NEW: enable media only when section is near viewport
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setMediaEnabled(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  }, []);
+
+  // 🔹 NEW: update bg / video src when active changes *and* media is enabled
+  useEffect(() => {
+    if (!mediaEnabled) return;
+
+    const current = testimonialsData[active];
+    const img =
+      isMobile && current.mob_image ? current.mob_image : current.image;
+
+    setBgSrc(img || null);
+    setVideoSrc(current.video || null);
+  }, [mediaEnabled, active, isMobile]);
+
   // ---------- LISTEN FOR HEADER AUDIO TOGGLE ----------
   useEffect(() => {
     const handleAudioToggle = (e) => {
@@ -328,9 +367,8 @@ const Testimonials = () => {
       className="relative z-10 w-full h-screen lg:h-full overflow-hidden flex flex-col-reverse md:flex-row 
     items-center justify-between px-8 py-15 md:px-20 md:py-20 lg:px-[7.813vw] lg:py-[6.5vw]"
       style={{
-        backgroundImage: hasVideo
-          ? "none"
-          : `url(${isMobile ? t.mob_image : t.image})`,
+        backgroundImage:
+          hasVideo || !bgSrc ? "none" : `url(${bgSrc})`,
       }}
     >
       <AnimatePresence mode="wait">
@@ -343,7 +381,7 @@ const Testimonials = () => {
             transition={{ duration: 0.5 }}
             className="absolute inset-0 w-full h-full z-0 bg-cover bg-no-repeat bg-center"
             style={{
-              backgroundImage: `url(${isMobile ? t.mob_image : t.image})`,
+              backgroundImage: bgSrc ? `url(${bgSrc})` : "none",
             }}
           />
         )}
@@ -352,9 +390,10 @@ const Testimonials = () => {
       {hasVideo && (
         <video
           ref={videoRef}
-          src={t.video}
-          autoPlay
+          src={mediaEnabled ? videoSrc || undefined : undefined}
+          autoPlay={!!(mediaEnabled && videoSrc)}
           muted
+          preload="none"
           // loop
           playsInline
           onPlay={() => setHideLeft(true)} // hide when video starts
@@ -394,7 +433,7 @@ const Testimonials = () => {
           <motion.button
             onClick={() => setDropdownOpen(!dropdownOpen)}
             variants={itemVariants}
-            className="w-full h-[50px] flex justify-between items-center px-5 rounded-lg border border-white/50 bg-white/20 backdrop-blur-[5px] cursor-pointer text-left section-3-names-text-selected"
+            className="w-full h-[50px] flex justify_between items-center px-5 rounded-lg border border-white/50 bg-white/20 backdrop-blur-[5px] cursor-pointer text-left section-3-names-text-selected"
           >
             {testimonialsData[active].name}
             <img
