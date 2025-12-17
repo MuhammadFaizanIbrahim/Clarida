@@ -112,7 +112,7 @@ export default function TestimonialsClaridaDifferenceScroll() {
     : useTransform(t, [0, 0.08, 0.9, 1], [0, 1, 1, 0]);
 
   return (
-    <section ref={sectionRef} className="relative h-[500vh]">
+    <section ref={sectionRef} className="relative h-[250vh]">
       <div style={viewportStyle} className="overflow-hidden">
         {/* BOTTOM LAYER: ClaridaDifference */}
         <motion.div
