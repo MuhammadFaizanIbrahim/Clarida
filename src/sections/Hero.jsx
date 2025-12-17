@@ -151,7 +151,7 @@ const Hero = () => {
           if (entry.isIntersecting) {
             // only set once
             setVideoSrc("/videos/hero-bg.webm");
-            setPosterSrc("/images/hero-bg.png");
+            setPosterSrc("/images/hero.jpg");
             observer.disconnect();
           }
         });
