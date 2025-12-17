@@ -13,16 +13,16 @@ import HeroInteractiveScroll from "../transitions/HeroInteractiveScroll";
 export default function Homepage() {
   return (
     <>
-      {/* <Hero />
+      <Hero />
       <InteractiveRegeneration />
       <Testimonials />
       <ClaridaDifference />
       <RegenerationTimeline />
       <ActivationTimeline />
       <VisionaryGuarantee />
-      <GlobalCommunityImpact /> */}
-      <HeroInteractiveScroll />
-      <ClaridaDifferenceTestimonialsScroll />
+      <GlobalCommunityImpact />
+      {/* <HeroInteractiveScroll /> */}
+      {/* <ClaridaDifferenceTestimonialsScroll /> */}
     </>
   );
 }
