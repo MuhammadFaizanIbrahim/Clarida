@@ -6,19 +6,23 @@ import InteractiveRegeneration from "../sections/InteractiveRegeneration";
 import RegenerationTimeline from "../sections/RegenerationTimeline";
 import Testimonials from "../sections/Testimonials";
 import VisionaryGuarantee from "../sections/VisionaryGuarantee";
+import ClaridaDifferenceTestimonialsScroll from "../transitions/ClaridaDifferenceTestimonialsScroll";
+import HeroInteractiveScroll from "../transitions/HeroInteractiveScroll";
 
 
 export default function Homepage() {
   return (
     <>
-      <Hero />
+      {/* <Hero />
       <InteractiveRegeneration />
       <Testimonials />
       <ClaridaDifference />
       <RegenerationTimeline />
       <ActivationTimeline />
       <VisionaryGuarantee />
-      <GlobalCommunityImpact />
+      <GlobalCommunityImpact /> */}
+      <HeroInteractiveScroll />
+      <ClaridaDifferenceTestimonialsScroll />
     </>
   );
 }
