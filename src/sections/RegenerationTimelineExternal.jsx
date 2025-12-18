@@ -1,5 +1,11 @@
 // src/sections/RegenerationTimelineExternal.jsx
-import React, { useLayoutEffect, useRef, useState, useMemo, useEffect } from "react";
+import React, {
+  useLayoutEffect,
+  useRef,
+  useState,
+  useMemo,
+  useEffect,
+} from "react";
 import { gsap } from "gsap";
 import { useMediaQuery } from "react-responsive";
 import { useMotionValue, useMotionValueEvent } from "framer-motion";
@@ -96,9 +102,13 @@ const timelineSteps = [
 ];
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
-const isMotionValue = (v) => v && typeof v === "object" && typeof v.get === "function";
+const isMotionValue = (v) =>
+  v && typeof v === "object" && typeof v.get === "function";
 
-export default function RegenerationTimelineExternal({ progress = 0, active = true }) {
+export default function RegenerationTimelineExternal({
+  progress = 0,
+  active = true,
+}) {
   const sectionRef = useRef(null);
   const trackRef = useRef(null);
   const timeBarRef = useRef(null);
@@ -168,7 +178,132 @@ export default function RegenerationTimelineExternal({ progress = 0, active = tr
 
   // ✅ NEW: reverse-exit safety so you don't leave from "Cellular Rediness"
   const prevIncomingRef = useRef(0);
-  const EXIT_SNAP_MAX = 0.24; // tweak (0.20..0.35). Higher = more aggressively forces Wake on fast reverse.
+  const EXIT_SNAP_MAX = 0.24;
+
+  // ----------------- ✅ AUDIO (ONLY ADDITION) -----------------
+  const audioRef = useRef(null);
+  const fadeIntervalRef = useRef(null);
+
+  const [isAudioOn, setIsAudioOn] = useState(false);
+  const isAudioOnRef = useRef(false);
+  const activeRef = useRef(active);
+
+  const clearFadeInterval = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+  };
+
+  const fadeTo = (audio, targetVolume, durationMs) => {
+    if (!audio) return;
+
+    clearFadeInterval();
+
+    // immediate stop if turning fully off and it's already paused
+    if (targetVolume === 0 && audio.paused) {
+      audio.volume = 1;
+      return;
+    }
+
+    const startVolume =
+      typeof audio.volume === "number" ? audio.volume : targetVolume > 0 ? 0 : 1;
+
+    const totalSteps = Math.max(Math.round(durationMs / 50), 1);
+    let step = 0;
+    const volumeDiff = targetVolume - startVolume;
+
+    // if fading IN, ensure playback starts
+    if (targetVolume > 0 && audio.paused) {
+      audio.loop = true;
+      audio.play().catch(() => {});
+    }
+
+    // if duration is 0, just jump
+    if (durationMs <= 0) {
+      audio.volume = targetVolume;
+      if (targetVolume === 0) {
+        audio.pause();
+        audio.volume = 1;
+      }
+      return;
+    }
+
+    fadeIntervalRef.current = setInterval(() => {
+      const shouldPlayNow = activeRef.current && isAudioOnRef.current;
+
+      if (targetVolume > 0 && !shouldPlayNow) {
+        clearFadeInterval();
+        audio.pause();
+        audio.volume = 1;
+        return;
+      }
+
+      step += 1;
+      const t = Math.min(step / totalSteps, 1);
+      const nextVolume = startVolume + volumeDiff * t;
+      audio.volume = Math.min(Math.max(nextVolume, 0), 1);
+
+      if (t >= 1) {
+        clearFadeInterval();
+        if (targetVolume === 0) {
+          audio.pause();
+          audio.volume = 1;
+        }
+      }
+    }, 50);
+  };
+
+  // initial sync with global audio flag
+  useEffect(() => {
+    if (typeof window !== "undefined" && typeof window.__claridaAudioOn === "boolean") {
+      const globalOn = window.__claridaAudioOn;
+      setIsAudioOn(globalOn);
+      isAudioOnRef.current = globalOn;
+    }
+  }, []);
+
+  // listen to header/global audio toggle
+  useEffect(() => {
+    const handleAudioToggle = (e) => {
+      const { isOn } = e.detail || {};
+      const nextState = !!isOn;
+
+      if (typeof window !== "undefined") window.__claridaAudioOn = nextState;
+
+      setIsAudioOn(nextState);
+      isAudioOnRef.current = nextState;
+    };
+
+    window.addEventListener("clarida-audio-toggle", handleAudioToggle);
+    return () => window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
+  }, []);
+
+  // single source of truth for play/pause: ONLY when section is active
+  useEffect(() => {
+    activeRef.current = active;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const shouldPlay = active && isAudioOn;
+    isAudioOnRef.current = isAudioOn;
+
+    if (shouldPlay) fadeTo(audio, 1, 600);
+    else fadeTo(audio, 0, 800);
+  }, [active, isAudioOn]);
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearFadeInterval();
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.volume = 1;
+      }
+    };
+  }, []);
+  // ----------------- ✅ END AUDIO -----------------
 
   const resetToStart = () => {
     const track = trackRef.current;
@@ -272,7 +407,7 @@ export default function RegenerationTimelineExternal({ progress = 0, active = tr
     if (!active) return;
 
     const current = clamp01(mv.get?.() ?? 0);
-    prevIncomingRef.current = current; // keep direction detection stable on entry
+    prevIncomingRef.current = current;
 
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
 
@@ -341,6 +476,9 @@ export default function RegenerationTimelineExternal({ progress = 0, active = tr
           />
         ))}
       </div>
+
+      {/* 🔊 SECTION AUDIO (same behavior as previous version) */}
+      <audio ref={audioRef} src="/audios/regenerationTimeline.mp3" preload="auto" loop />
 
       {/* CONTENT */}
       <div className="relative z-10 w-full h-full">

@@ -22,6 +22,9 @@ const ScientificInnovationExternal = ({ active = true }) => {
   const isInViewRef = useRef(false);
   const isAudioOnRef = useRef(false);
 
+  // ✅ NEW: use active as the single source of truth (pinned external sections)
+  const activeRef = useRef(active);
+
   // ---------- FADE HELPER ----------
   const clearFadeInterval = () => {
     if (fadeIntervalRef.current) {
@@ -62,7 +65,8 @@ const ScientificInnovationExternal = ({ active = true }) => {
     }
 
     fadeIntervalRef.current = setInterval(() => {
-      const shouldPlayNow = isInViewRef.current && isAudioOnRef.current;
+      // ✅ IMPORTANT: stop audio when section becomes inactive (even if intersection state lags)
+      const shouldPlayNow = activeRef.current && isAudioOnRef.current;
 
       if (targetVolume > 0 && !shouldPlayNow) {
         clearFadeInterval();
@@ -97,6 +101,8 @@ const ScientificInnovationExternal = ({ active = true }) => {
 
   // ✅ pinned-parent drives visibility
   useEffect(() => {
+    activeRef.current = active;
+
     const inView = !!active;
     setIsInView(inView);
     isInViewRef.current = inView;
@@ -126,11 +132,12 @@ const ScientificInnovationExternal = ({ active = true }) => {
     isInViewRef.current = isInView;
     isAudioOnRef.current = isAudioOn;
 
-    const shouldPlay = isInView && isAudioOn;
+    // ✅ only play if active + audio enabled (prevents bleed to other sections)
+    const shouldPlay = active && isAudioOn;
 
     if (shouldPlay) fadeTo(audio, 1, 600);
     else fadeTo(audio, 0, 800);
-  }, [isInView, isAudioOn]);
+  }, [isInView, isAudioOn, active]);
 
   // ---------- CLEANUP ON UNMOUNT ----------
   useEffect(() => {

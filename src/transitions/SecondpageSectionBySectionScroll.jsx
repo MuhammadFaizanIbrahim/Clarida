@@ -10,10 +10,10 @@ import {
 
 import CurveDivider from "../components/CurveDivider";
 
-import ScientificInnovation from "../sections/ScientificInnovation";
 import ClaridaScrollStore from "../sections/ClaridaScrollStore";
 import LifestyleVisionExternal from "../sections/LifestyleVisionExternal";
 import Footer from "../sections/Footer";
+import ScientificInnovationExternal from "../sections/ScientificInnovationExternal";
 
 function TransitionArc({ t }) {
   const prefersReducedMotion = useReducedMotion();
@@ -47,7 +47,7 @@ export default function SecondPageSectionBySectionScroll() {
       SCI_HOLD: 25,
       SCI_TO_STORE: 75,
 
-      STORE_HOLD: 25,
+      STORE_HOLD: 45,
       STORE_TO_LIFE: 75,
 
       LIFE_HOLD: 290,
@@ -231,7 +231,7 @@ export default function SecondPageSectionBySectionScroll() {
           style={{ opacity: sciOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }}
           className="absolute inset-0 z-10"
         >
-          <ScientificInnovation />
+          <ScientificInnovationExternal active={activeIndex === 0} />
         </motion.div>
 
         {/* Clarida Scroll Store */}
@@ -239,7 +239,7 @@ export default function SecondPageSectionBySectionScroll() {
           style={{ opacity: storeOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }}
           className="absolute inset-0 z-20"
         >
-          <ClaridaScrollStore />
+          <ClaridaScrollStore active={activeIndex === 1} />
         </motion.div>
 
         {/* Lifestyle Vision (external scrubbed) */}

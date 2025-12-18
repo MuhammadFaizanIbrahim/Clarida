@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 import { itemVariants, containerVariants } from "../components/EntranceAnimation";
 
-const Hero = () => {
+const Hero = ({ active = true }) => {
   const isMobile = useMediaQuery({ maxWidth: 767 });
   const location = useLocation();
 
@@ -25,6 +25,20 @@ const Hero = () => {
   // keep latest values to avoid stale closures
   const isInViewRef = useRef(false);
   const isAudioOnRef = useRef(false);
+  const activeRef = useRef(active);
+
+  // keep latest active in ref
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  // ✅ pinned/stacked pages: force audio off immediately when this section becomes inactive
+  useEffect(() => {
+    if (!active) {
+      isInViewRef.current = false;
+      setIsInView(false);
+    }
+  }, [active]);
 
   // ------------- FADE HELPER (single source of truth) -------------
 
@@ -73,8 +87,9 @@ const Hero = () => {
     }
 
     fadeIntervalRef.current = setInterval(() => {
-      // If global audio turned off or section left view, abort fade
-      const shouldPlayNow = isInViewRef.current && isAudioOnRef.current;
+      // ✅ include active in abort condition
+      const shouldPlayNow =
+        activeRef.current && isInViewRef.current && isAudioOnRef.current;
 
       if (targetVolume > 0 && !shouldPlayNow) {
         // we were fading in but conditions invalid now
@@ -116,6 +131,15 @@ const Hero = () => {
 
   useEffect(() => {
     const handleScroll = () => {
+      // ✅ if inactive, treat as not in view
+      if (!active) {
+        if (isInViewRef.current) {
+          isInViewRef.current = false;
+          setIsInView(false);
+        }
+        return;
+      }
+
       const el = sectionRef.current;
       if (!el) return;
 
@@ -137,7 +161,7 @@ const Hero = () => {
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleScroll);
     };
-  }, []);
+  }, [active]);
 
   // ------------- LAZY-LOAD BACKGROUND VIDEO & POSTER -------------
 
@@ -191,18 +215,19 @@ const Hero = () => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const shouldPlay = isInView && isAudioOn;
+    // ✅ include active
+    const shouldPlay = active && isInView && isAudioOn;
+
     isInViewRef.current = isInView;
     isAudioOnRef.current = isAudioOn;
+    activeRef.current = active;
 
     if (shouldPlay) {
-      // fade in smoothly
       fadeTo(audio, 1, 600);
     } else {
-      // fade out a bit slower for smoothness
       fadeTo(audio, 0, 800);
     }
-  }, [isInView, isAudioOn]);
+  }, [active, isInView, isAudioOn]);
 
   // ------------- CLEANUP ON UNMOUNT -------------
 

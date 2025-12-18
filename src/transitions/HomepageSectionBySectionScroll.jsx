@@ -56,7 +56,7 @@ export default function HomepageSectionBySectionScroll() {
       INTER_HOLD: 420,
       INTER_TO_TEST: 75,
 
-      TEST_HOLD: 25,
+      TEST_HOLD: 45,
       TEST_TO_DIFF: 75,
 
       DIFF_HOLD: 220,
@@ -308,7 +308,7 @@ export default function HomepageSectionBySectionScroll() {
       <div style={viewportStyle} className="overflow-hidden bg-black">
 
         <motion.div style={{ opacity: heroOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }} className="absolute inset-0 z-10">
-          <Hero />
+        <Hero active={activeIndex === 0} />
         </motion.div>
 
         <motion.div style={{ opacity: interOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }} className="absolute inset-0 z-20">
