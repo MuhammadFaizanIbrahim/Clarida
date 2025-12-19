@@ -128,7 +128,8 @@ export default function RegenerationTimelineExternal({
   const baseStepsCount = baseSteps.length;
 
   const displaySteps = useMemo(() => {
-    if (!isMobile) return baseSteps.map((step, idx) => ({ ...step, baseIndex: idx }));
+    if (!isMobile)
+      return baseSteps.map((step, idx) => ({ ...step, baseIndex: idx }));
 
     const result = [];
     baseSteps.forEach((step, idx) => {
@@ -158,7 +159,10 @@ export default function RegenerationTimelineExternal({
 
   // ---- progress can be MotionValue or number
   const fallback = useMotionValue(0);
-  const mv = useMemo(() => (isMotionValue(progress) ? progress : fallback), [progress, fallback]);
+  const mv = useMemo(
+    () => (isMotionValue(progress) ? progress : fallback),
+    [progress, fallback]
+  );
 
   useEffect(() => {
     if (!isMotionValue(progress)) {
@@ -176,179 +180,23 @@ export default function RegenerationTimelineExternal({
   const ENTRY_REBASE_MAX = 0.22;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
-  // ✅ NEW: reverse-exit safety so you don't leave from "Cellular Rediness"
+  // ✅ reverse safety (no stutter, no skip)
   const prevIncomingRef = useRef(0);
-  const EXIT_SNAP_MAX = 0.24;
+  const snapToStartLockRef = useRef(false);
 
-  // ----------------- ✅ AUDIO (ONLY ADDITION) -----------------
-  const audioRef = useRef(null);
-  const fadeIntervalRef = useRef(null);
+  const MAX_INDEX = timelineSteps.length - 1; // 8
+  const FIRST_STEP_P = 1 / MAX_INDEX; // step 1->2 boundary in p space
+  const SNAP_ZONE = FIRST_STEP_P * 0.55; // only lock very near start (prevents jitter)
+  const SNAP_RELEASE = FIRST_STEP_P * 0.75; // hysteresis release
 
-  const [isAudioOn, setIsAudioOn] = useState(false);
-  const isAudioOnRef = useRef(false);
-  const activeRef = useRef(active);
+  // if user reverse-scrolls fast, we lock even earlier so it can't exit from 10am
+  const FAST_BACK_DELTA = FIRST_STEP_P * 0.35;
 
-  const clearFadeInterval = () => {
-    if (fadeIntervalRef.current) {
-      clearInterval(fadeIntervalRef.current);
-      fadeIntervalRef.current = null;
-    }
-  };
+  // ✅ smooth internal progress (prevents teleport on parent progress jumps)
+  const smoothObjRef = useRef({ p: 0 });
+  const quickToRef = useRef(null);
 
-  const fadeTo = (audio, targetVolume, durationMs) => {
-    if (!audio) return;
-
-    clearFadeInterval();
-
-    // immediate stop if turning fully off and it's already paused
-    if (targetVolume === 0 && audio.paused) {
-      audio.volume = 1;
-      return;
-    }
-
-    const startVolume =
-      typeof audio.volume === "number" ? audio.volume : targetVolume > 0 ? 0 : 1;
-
-    const totalSteps = Math.max(Math.round(durationMs / 50), 1);
-    let step = 0;
-    const volumeDiff = targetVolume - startVolume;
-
-    // if fading IN, ensure playback starts
-    if (targetVolume > 0 && audio.paused) {
-      audio.loop = true;
-      audio.play().catch(() => {});
-    }
-
-    // if duration is 0, just jump
-    if (durationMs <= 0) {
-      audio.volume = targetVolume;
-      if (targetVolume === 0) {
-        audio.pause();
-        audio.volume = 1;
-      }
-      return;
-    }
-
-    fadeIntervalRef.current = setInterval(() => {
-      const shouldPlayNow = activeRef.current && isAudioOnRef.current;
-
-      if (targetVolume > 0 && !shouldPlayNow) {
-        clearFadeInterval();
-        audio.pause();
-        audio.volume = 1;
-        return;
-      }
-
-      step += 1;
-      const t = Math.min(step / totalSteps, 1);
-      const nextVolume = startVolume + volumeDiff * t;
-      audio.volume = Math.min(Math.max(nextVolume, 0), 1);
-
-      if (t >= 1) {
-        clearFadeInterval();
-        if (targetVolume === 0) {
-          audio.pause();
-          audio.volume = 1;
-        }
-      }
-    }, 50);
-  };
-
-  // initial sync with global audio flag
-  useEffect(() => {
-    if (typeof window !== "undefined" && typeof window.__claridaAudioOn === "boolean") {
-      const globalOn = window.__claridaAudioOn;
-      setIsAudioOn(globalOn);
-      isAudioOnRef.current = globalOn;
-    }
-  }, []);
-
-  // listen to header/global audio toggle
-  useEffect(() => {
-    const handleAudioToggle = (e) => {
-      const { isOn } = e.detail || {};
-      const nextState = !!isOn;
-
-      if (typeof window !== "undefined") window.__claridaAudioOn = nextState;
-
-      setIsAudioOn(nextState);
-      isAudioOnRef.current = nextState;
-    };
-
-    window.addEventListener("clarida-audio-toggle", handleAudioToggle);
-    return () => window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
-  }, []);
-
-  // single source of truth for play/pause: ONLY when section is active
-  useEffect(() => {
-    activeRef.current = active;
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const shouldPlay = active && isAudioOn;
-    isAudioOnRef.current = isAudioOn;
-
-    if (shouldPlay) fadeTo(audio, 1, 600);
-    else fadeTo(audio, 0, 800);
-  }, [active, isAudioOn]);
-
-  // cleanup on unmount
-  useEffect(() => {
-    return () => {
-      clearFadeInterval();
-      const audio = audioRef.current;
-      if (audio) {
-        audio.pause();
-        audio.volume = 1;
-      }
-    };
-  }, []);
-  // ----------------- ✅ END AUDIO -----------------
-
-  const resetToStart = () => {
-    const track = trackRef.current;
-    const timeBar = timeBarRef.current;
-
-    if (track) gsap.set(track, { x: 0 });
-    if (timeBar) gsap.set(timeBar, { x: 0 });
-
-    bgRefs.current.forEach((el, idx) => {
-      if (!el) return;
-      gsap.set(el, { opacity: idx === 0 ? 1 : 0 });
-    });
-
-    cardRefs.current.forEach((el, idx) => {
-      if (!el) return;
-      gsap.set(el, { opacity: idx === 0 ? 1 : 0 });
-    });
-
-    stepIndexRef.current = 0;
-    setStepIndex(0);
-    lastPRef.current = 0;
-  };
-
-  const apply = (pRaw) => {
-    if (!active) return;
-
-    const pIncoming = clamp01(pRaw);
-
-    // ✅ detect reverse scroll and force Wake pose near the top of this section
-    const prev = prevIncomingRef.current;
-    const goingBack = pIncoming < prev - 0.0005;
-    prevIncomingRef.current = pIncoming;
-
-    const startAt = activeStartRef.current || 0;
-    const denom = 1 - startAt;
-
-    let p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
-
-    // ✅ if user is reverse-scrolling and we're in the early zone, clamp to Wake
-    if (goingBack && pIncoming <= EXIT_SNAP_MAX) {
-      p = 0;
-    }
-
-    lastPRef.current = p;
-
+  const renderAt = (p) => {
     const track = trackRef.current;
     const timeBar = timeBarRef.current;
     if (!track || !timeBar) return;
@@ -402,7 +250,210 @@ export default function RegenerationTimelineExternal({
     });
   };
 
-  // ✅ on activate: decide whether to rebase or not (fix reverse re-entry)
+  const setSmoothTarget = (pTarget) => {
+    const clamped = clamp01(pTarget);
+    lastPRef.current = clamped;
+
+    if (quickToRef.current) {
+      quickToRef.current(clamped);
+    } else {
+      smoothObjRef.current.p = clamped;
+      renderAt(clamped);
+    }
+  };
+
+  // ----------------- ✅ AUDIO (ONLY ADDITION) -----------------
+  const audioRef = useRef(null);
+  const fadeIntervalRef = useRef(null);
+
+  const [isAudioOn, setIsAudioOn] = useState(false);
+  const isAudioOnRef = useRef(false);
+  const activeRef = useRef(active);
+
+  const clearFadeInterval = () => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+  };
+
+  const fadeTo = (audio, targetVolume, durationMs) => {
+    if (!audio) return;
+
+    clearFadeInterval();
+
+    // immediate stop if turning fully off and it's already paused
+    if (targetVolume === 0 && audio.paused) {
+      audio.volume = 1;
+      return;
+    }
+
+    const startVolume =
+      typeof audio.volume === "number"
+        ? audio.volume
+        : targetVolume > 0
+        ? 0
+        : 1;
+
+    const totalSteps = Math.max(Math.round(durationMs / 50), 1);
+    let step = 0;
+    const volumeDiff = targetVolume - startVolume;
+
+    // if fading IN, ensure playback starts
+    if (targetVolume > 0 && audio.paused) {
+      audio.loop = true;
+      audio.play().catch(() => {});
+    }
+
+    // if duration is 0, just jump
+    if (durationMs <= 0) {
+      audio.volume = targetVolume;
+      if (targetVolume === 0) {
+        audio.pause();
+        audio.volume = 1;
+      }
+      return;
+    }
+
+    fadeIntervalRef.current = setInterval(() => {
+      const shouldPlayNow = activeRef.current && isAudioOnRef.current;
+
+      if (targetVolume > 0 && !shouldPlayNow) {
+        clearFadeInterval();
+        audio.pause();
+        audio.volume = 1;
+        return;
+      }
+
+      step += 1;
+      const t = Math.min(step / totalSteps, 1);
+      const nextVolume = startVolume + volumeDiff * t;
+      audio.volume = Math.min(Math.max(nextVolume, 0), 1);
+
+      if (t >= 1) {
+        clearFadeInterval();
+        if (targetVolume === 0) {
+          audio.pause();
+          audio.volume = 1;
+        }
+      }
+    }, 50);
+  };
+
+  // initial sync with global audio flag
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.__claridaAudioOn === "boolean"
+    ) {
+      const globalOn = window.__claridaAudioOn;
+      setIsAudioOn(globalOn);
+      isAudioOnRef.current = globalOn;
+    }
+  }, []);
+
+  // listen to header/global audio toggle
+  useEffect(() => {
+    const handleAudioToggle = (e) => {
+      const { isOn } = e.detail || {};
+      const nextState = !!isOn;
+
+      if (typeof window !== "undefined") window.__claridaAudioOn = nextState;
+
+      setIsAudioOn(nextState);
+      isAudioOnRef.current = nextState;
+    };
+
+    window.addEventListener("clarida-audio-toggle", handleAudioToggle);
+    return () =>
+      window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
+  }, []);
+
+  // single source of truth for play/pause: ONLY when section is active
+  useEffect(() => {
+    activeRef.current = active;
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const shouldPlay = active && isAudioOn;
+    isAudioOnRef.current = isAudioOn;
+
+    if (shouldPlay) fadeTo(audio, 1, 600);
+    else fadeTo(audio, 0, 800);
+  }, [active, isAudioOn]);
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearFadeInterval();
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.volume = 1;
+      }
+    };
+  }, []);
+  // ----------------- ✅ END AUDIO -----------------
+
+  const resetToStart = () => {
+    snapToStartLockRef.current = false;
+    prevIncomingRef.current = 0;
+
+    smoothObjRef.current.p = 0;
+    setSmoothTarget(0);
+
+    stepIndexRef.current = 0;
+    setStepIndex(0);
+  };
+
+  const apply = (pRaw) => {
+    if (!active) return;
+
+    const pIncoming = clamp01(pRaw);
+
+    const prev = prevIncomingRef.current;
+    const delta = prev - pIncoming;
+    const goingBack = pIncoming < prev - 0.0005;
+    const fastBack = goingBack && delta > FAST_BACK_DELTA;
+    prevIncomingRef.current = pIncoming;
+
+    const startAt = activeStartRef.current || 0;
+    const denom = 1 - startAt;
+    let p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
+
+    // ✅ robust lock rules:
+    // - slow back near start => lock (prevents jitter)
+    // - fast back within first step span => lock (prevents skipping start on fast exit)
+    if (goingBack && (p <= SNAP_ZONE || (fastBack && p <= FIRST_STEP_P * 1.2))) {
+      snapToStartLockRef.current = true;
+    }
+
+    if (snapToStartLockRef.current) {
+      // release only after moving forward clearly
+      if (!goingBack && p >= SNAP_RELEASE) {
+        snapToStartLockRef.current = false;
+      } else {
+        p = 0;
+      }
+    }
+
+    setSmoothTarget(p);
+  };
+
+  // ✅ on deactivate: if leaving while still within first two steps, force start pose
+  const prevActiveRef = useRef(active);
+  useEffect(() => {
+    if (prevActiveRef.current && !active) {
+      if (stepIndexRef.current <= 1) {
+        snapToStartLockRef.current = false;
+        smoothObjRef.current.p = 0;
+        renderAt(0);
+      }
+    }
+    prevActiveRef.current = active;
+  }, [active]);
+
+  // ✅ on activate: decide whether to rebase or not
   useEffect(() => {
     if (!active) return;
 
@@ -424,23 +475,35 @@ export default function RegenerationTimelineExternal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
-  // ----------------- layout: compute totalScroll -----------------
+  // ----------------- layout: compute totalScroll + quickTo -----------------
   useLayoutEffect(() => {
     const track = trackRef.current;
     if (!track) return;
 
     const compute = () => {
-      totalScrollRef.current = Math.max(track.scrollWidth - window.innerWidth, 0);
-      apply(lastPRef.current);
+      totalScrollRef.current = Math.max(
+        track.scrollWidth - window.innerWidth,
+        0
+      );
+      renderAt(smoothObjRef.current.p);
     };
 
     compute();
     window.addEventListener("resize", compute);
     window.addEventListener("orientationchange", compute);
 
+    // smooth driver (critical)
+    quickToRef.current = gsap.quickTo(smoothObjRef.current, "p", {
+      duration: 0.18,
+      ease: "power2.out",
+      overwrite: true,
+      onUpdate: () => renderAt(smoothObjRef.current.p),
+    });
+
     return () => {
       window.removeEventListener("resize", compute);
       window.removeEventListener("orientationchange", compute);
+      quickToRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displaySteps.length]);
@@ -478,7 +541,12 @@ export default function RegenerationTimelineExternal({
       </div>
 
       {/* 🔊 SECTION AUDIO (same behavior as previous version) */}
-      <audio ref={audioRef} src="/audios/regenerationTimeline.mp3" preload="auto" loop />
+      <audio
+        ref={audioRef}
+        src="/audios/regenerationTimeline.mp3"
+        preload="auto"
+        loop
+      />
 
       {/* CONTENT */}
       <div className="relative z-10 w-full h-full">
@@ -516,7 +584,11 @@ export default function RegenerationTimelineExternal({
 
         {/* HORIZONTAL CARDS TRACK */}
         <div className="h-full w-full flex items-center">
-          <div ref={trackRef} className="flex h-full" style={{ width: `${trackWidthVW}vw` }}>
+          <div
+            ref={trackRef}
+            className="flex h-full"
+            style={{ width: `${trackWidthVW}vw` }}
+          >
             {displaySteps.map((item, index) => {
               const isLastThree = item.baseIndex >= baseStepsCount - 3;
               const isLastTwo = item.baseIndex >= baseStepsCount - 2;
@@ -532,7 +604,10 @@ export default function RegenerationTimelineExternal({
                   key={index}
                   ref={(el) => (cardRefs.current[index] = el)}
                   className="shrink-0 w-screen flex flex-col items-center justify-center text-center px-8"
-                  style={{ opacity: index === 0 ? 1 : 0, transition: "opacity 0.2s linear" }}
+                  style={{
+                    opacity: index === 0 ? 1 : 0,
+                    transition: "opacity 0.2s linear",
+                  }}
                 >
                   {!isLastThree && (
                     <img
@@ -547,16 +622,21 @@ export default function RegenerationTimelineExternal({
                       <>
                         {item.title}
                         <br />
-                        {baseSteps[baseStepsCount - 3].subtitle.split(" ").map((word, i) => {
-                          if (word.toLowerCase().includes("listens")) {
-                            return (
-                              <span key={i} className="font-bold h2-text-bold">
-                                {word}{" "}
-                              </span>
-                            );
-                          }
-                          return word + " ";
-                        })}
+                        {baseSteps[baseStepsCount - 3].subtitle
+                          .split(" ")
+                          .map((word, i) => {
+                            if (word.toLowerCase().includes("listens")) {
+                              return (
+                                <span
+                                  key={i}
+                                  className="font-bold h2-text-bold"
+                                >
+                                  {word}{" "}
+                                </span>
+                              );
+                            }
+                            return word + " ";
+                          })}
                       </>
                     ) : isMobileBiology ? (
                       <>{item.title}</>

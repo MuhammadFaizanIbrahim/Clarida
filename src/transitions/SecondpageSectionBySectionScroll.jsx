@@ -24,13 +24,14 @@ function TransitionArc({ t }) {
 
   return (
     <motion.div
-      style={{ opacity: arcOpacity, y: arcY }}
+      // ✅ hard force no pointer capture (even if children try to re-enable)
+      style={{ opacity: arcOpacity, y: arcY, pointerEvents: "none" }}
       className="
-        pointer-events-none
         absolute left-1/2 -translate-x-1/2
         bottom-[-5vh] md:bottom-[-6vh] lg:bottom-[-5vh]
-        w-screen z-50
+        w-screen z-30
       "
+      aria-hidden="true"
     >
       <CurveDivider />
     </motion.div>
@@ -41,7 +42,6 @@ export default function SecondPageSectionBySectionScroll() {
   const sectionRef = useRef(null);
   const prefersReducedMotion = useReducedMotion();
 
-  // 🔧 tweak these like homepage
   const VH = useMemo(
     () => ({
       SCI_HOLD: 25,
@@ -72,7 +72,6 @@ export default function SecondPageSectionBySectionScroll() {
     offset: ["start start", "end start"],
   });
 
-  // fixed pin (same pattern as homepage)
   const [pinMode, setPinMode] = useState("before");
   const [range, setRange] = useState({ start: 0, end: 0 });
 
@@ -122,7 +121,6 @@ export default function SecondPageSectionBySectionScroll() {
       ? { position: "absolute", left: 0, bottom: 0, width: "100%", height: "100vh" }
       : { position: "absolute", top: 0, left: 0, width: "100%", height: "100vh" };
 
-  // bounds
   const bounds = useMemo(() => {
     let acc = 0;
     const toP = (vh) => vh / TOTAL_VH;
@@ -154,7 +152,6 @@ export default function SecondPageSectionBySectionScroll() {
     };
   }, [TOTAL_VH, VH]);
 
-  // transition Ts (for arcs)
   const sciToStoreT = prefersReducedMotion
     ? 0
     : useTransform(scrollYProgress, [bounds.SCI_TO_STORE.start, bounds.SCI_TO_STORE.end], [0, 1], {
@@ -169,26 +166,24 @@ export default function SecondPageSectionBySectionScroll() {
 
   const lifeToFooterT = prefersReducedMotion
     ? 0
-    : useTransform(
-        scrollYProgress,
-        [bounds.LIFE_TO_FOOTER.start, bounds.LIFE_TO_FOOTER.end],
-        [0, 1],
-        { clamp: true }
-      );
+    : useTransform(scrollYProgress, [bounds.LIFE_TO_FOOTER.start, bounds.LIFE_TO_FOOTER.end], [0, 1], {
+        clamp: true,
+      });
 
-  // progress for lifestyle scrub
   const lifeProgress = prefersReducedMotion
     ? 0
     : useTransform(scrollYProgress, [bounds.STORE_TO_LIFE.start, bounds.LIFE_HOLD.end], [0, 1], {
         clamp: true,
       });
 
-  // opacity envelopes
   const sciOpacity = prefersReducedMotion
     ? 1
-    : useTransform(scrollYProgress, [bounds.SCI_HOLD.start, bounds.SCI_HOLD.end, bounds.SCI_TO_STORE.end], [1, 1, 0], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.SCI_HOLD.start, bounds.SCI_HOLD.end, bounds.SCI_TO_STORE.end],
+        [1, 1, 0],
+        { clamp: true }
+      );
 
   const storeOpacity = prefersReducedMotion
     ? 1
@@ -210,23 +205,25 @@ export default function SecondPageSectionBySectionScroll() {
 
   const footerOpacity = prefersReducedMotion
     ? 1
-    : useTransform(scrollYProgress, [bounds.LIFE_TO_FOOTER.start, bounds.LIFE_TO_FOOTER.end, bounds.FOOTER_HOLD.end], [0, 1, 1], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.LIFE_TO_FOOTER.start, bounds.LIFE_TO_FOOTER.end, bounds.FOOTER_HOLD.end],
+        [0, 1, 1],
+        { clamp: true }
+      );
 
-  // pointer events index
+  // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
   const [activeIndex, setActiveIndex] = useState(0);
   useMotionValueEvent(scrollYProgress, "change", (p) => {
-    if (p < bounds.SCI_TO_STORE.end) setActiveIndex(0);
-    else if (p < bounds.STORE_TO_LIFE.end) setActiveIndex(1);
-    else if (p < bounds.LIFE_TO_FOOTER.end) setActiveIndex(2);
+    if (p < bounds.SCI_TO_STORE.start) setActiveIndex(0);
+    else if (p < bounds.STORE_TO_LIFE.start) setActiveIndex(1);
+    else if (p < bounds.LIFE_TO_FOOTER.start) setActiveIndex(2);
     else setActiveIndex(3);
   });
 
   return (
     <section ref={sectionRef} className="relative isolate bg-black" style={{ height: `${TOTAL_VH}vh` }}>
       <div style={viewportStyle} className="overflow-hidden bg-black">
-        {/* Scientific */}
         <motion.div
           style={{ opacity: sciOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }}
           className="absolute inset-0 z-10"
@@ -234,7 +231,6 @@ export default function SecondPageSectionBySectionScroll() {
           <ScientificInnovationExternal active={activeIndex === 0} />
         </motion.div>
 
-        {/* Clarida Scroll Store */}
         <motion.div
           style={{ opacity: storeOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }}
           className="absolute inset-0 z-20"
@@ -242,7 +238,6 @@ export default function SecondPageSectionBySectionScroll() {
           <ClaridaScrollStore active={activeIndex === 1} />
         </motion.div>
 
-        {/* Lifestyle Vision (external scrubbed) */}
         <motion.div
           style={{ opacity: lifeOpacity, pointerEvents: activeIndex === 2 ? "auto" : "none" }}
           className="absolute inset-0 z-30"
@@ -250,15 +245,14 @@ export default function SecondPageSectionBySectionScroll() {
           <LifestyleVisionExternal progress={lifeProgress} active={activeIndex === 2} />
         </motion.div>
 
-        {/* Footer (now included + transition into it) */}
+        {/* ✅ FIX: use inline zIndex (don’t rely on z-999) */}
         <motion.div
-          style={{ opacity: footerOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none" }}
-          className="absolute inset-0 z-40"
+          style={{ opacity: footerOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none", zIndex: 60 }}
+          className="absolute inset-0"
         >
           <Footer />
         </motion.div>
 
-        {/* Arcs */}
         <TransitionArc t={sciToStoreT} />
         <TransitionArc t={storeToLifeT} />
         <TransitionArc t={lifeToFooterT} />

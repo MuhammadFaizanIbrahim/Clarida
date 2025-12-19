@@ -126,7 +126,7 @@ const Footer = () => {
             <a href="https://twitter.com">
               <img src="icons/twitter.svg" alt="Twitter" />
             </a>
-            <a href="https://youtube.com">
+            <a href="https://instagram.com">
               <img src="icons/instagram.svg" alt="Instagram" />
             </a>
             <a href="https://youtube.com">

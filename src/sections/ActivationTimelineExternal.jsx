@@ -93,64 +93,26 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
 
   // ✅ entry behavior
   const activeStartRef = useRef(0);
-  const ENTRY_REBASE_MAX = 0.35; // bigger = more delay/hold on entry
+  const ENTRY_REBASE_MAX = 0.35;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
-  // ✅ NEW: reverse-exit safety so you don't leave from Dose Two on fast back-scroll
+  // ✅ reverse safety (no stutter, no skip)
   const prevIncomingRef = useRef(0);
-  const EXIT_SNAP_MAX = 0.30; // tweak: range near start where reverse scroll forces Dose One
+  const snapToStartLockRef = useRef(false);
 
-  const resetToStart = () => {
-    const track = trackRef.current;
-    if (track) gsap.set(track, { x: 0 });
+  const MAX_INDEX = timelineSteps.length - 1; // 5
+  const FIRST_STEP_P = 1 / MAX_INDEX; // 0.2
+  const SNAP_ZONE = FIRST_STEP_P * 0.55;
+  const SNAP_RELEASE = FIRST_STEP_P * 0.75;
+  const FAST_BACK_DELTA = FIRST_STEP_P * 0.35;
 
-    bgRefs.current.forEach((el, idx) => {
-      if (!el) return;
-      gsap.set(el, { opacity: idx === 0 ? 1 : 0 });
-    });
+  // ✅ smooth internal progress (prevents teleport on parent progress jumps)
+  const smoothObjRef = useRef({ p: 0 });
+  const quickToRef = useRef(null);
 
-    cardRefs.current.forEach((el, idx) => {
-      if (!el) return;
-      gsap.set(el, { opacity: idx === 0 ? 1 : 0 });
-    });
-
-    if (circleRef.current) gsap.set(circleRef.current, { rotate: 0 });
-
-    markerRefs.current.forEach((el, idx) => {
-      if (!el) return;
-      gsap.set(el, { opacity: idx === 0 ? 1 : 0.15 });
-    });
-
-    stepIndexRef.current = 0;
-    setStepIndex(0);
-    lastPRef.current = 0;
-  };
-
-  const apply = (pRaw) => {
-    if (!active) return;
-
-    const pIncoming = clamp01(pRaw);
-
-    // ✅ NEW: detect reverse scroll and force start pose near the top of this section
-    const prev = prevIncomingRef.current;
-    const goingBack = pIncoming < prev - 0.0005;
-    prevIncomingRef.current = pIncoming;
-
-    const startAt = activeStartRef.current || 0;
-    const denom = 1 - startAt;
-
-    // default mapping (rebased)
-    let p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
-
-    // ✅ if user is reverse-scrolling and we're in the early zone, clamp to Dose One
-    if (goingBack && pIncoming <= EXIT_SNAP_MAX) {
-      p = 0;
-    }
-
+  const renderAt = (p) => {
     const track = trackRef.current;
     if (!track) return;
-
-    lastPRef.current = p;
 
     const totalScroll = totalScrollRef.current;
     const x = -totalScroll * p;
@@ -198,7 +160,6 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
       gsap.set(el, { opacity });
     });
 
-    // circle rotation + marker opacity (unchanged logic)
     const anglePerStep = 360 / timelineSteps.length;
     const rotation = -indexFloat * anglePerStep;
     if (circleRef.current) gsap.set(circleRef.current, { rotate: rotation });
@@ -219,12 +180,80 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
     });
   };
 
-  // ✅ on activate: choose rebase mode (fix reverse re-entry)
+  const setSmoothTarget = (pTarget) => {
+    const clamped = clamp01(pTarget);
+    lastPRef.current = clamped;
+
+    if (quickToRef.current) {
+      quickToRef.current(clamped);
+    } else {
+      smoothObjRef.current.p = clamped;
+      renderAt(clamped);
+    }
+  };
+
+  const resetToStart = () => {
+    snapToStartLockRef.current = false;
+    prevIncomingRef.current = 0;
+
+    smoothObjRef.current.p = 0;
+    setSmoothTarget(0);
+
+    stepIndexRef.current = 0;
+    setStepIndex(0);
+  };
+
+  const apply = (pRaw) => {
+    if (!active) return;
+
+    const pIncoming = clamp01(pRaw);
+
+    const prev = prevIncomingRef.current;
+    const delta = prev - pIncoming;
+    const goingBack = pIncoming < prev - 0.0005;
+    const fastBack = goingBack && delta > FAST_BACK_DELTA;
+    prevIncomingRef.current = pIncoming;
+
+    const startAt = activeStartRef.current || 0;
+    const denom = 1 - startAt;
+    let p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
+
+    // ✅ robust lock rules (same behavior as regen fix)
+    if (goingBack && (p <= SNAP_ZONE || (fastBack && p <= FIRST_STEP_P * 1.2))) {
+      snapToStartLockRef.current = true;
+    }
+
+    if (snapToStartLockRef.current) {
+      if (!goingBack && p >= SNAP_RELEASE) {
+        snapToStartLockRef.current = false;
+      } else {
+        p = 0;
+      }
+    }
+
+    setSmoothTarget(p);
+  };
+
+  // ✅ on deactivate: if leaving while still within first two steps, force start pose
+  const prevActiveRef = useRef(active);
+  useEffect(() => {
+    if (prevActiveRef.current && !active) {
+      if (stepIndexRef.current <= 1) {
+        snapToStartLockRef.current = false;
+        smoothObjRef.current.p = 0;
+        renderAt(0);
+      }
+    }
+    prevActiveRef.current = active;
+  }, [active]);
+
+  // ✅ on activate: choose rebase mode
   useEffect(() => {
     if (!active) return;
 
     const current = clamp01(mv.get?.() ?? 0);
-    prevIncomingRef.current = current; // keep direction detection stable on entry
+    prevIncomingRef.current = current;
+    snapToStartLockRef.current = false;
 
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
 
@@ -247,16 +276,25 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
 
     const compute = () => {
       totalScrollRef.current = Math.max(track.scrollWidth - window.innerWidth, 0);
-      apply(lastPRef.current);
+      renderAt(smoothObjRef.current.p);
     };
 
     compute();
     window.addEventListener("resize", compute);
     window.addEventListener("orientationchange", compute);
 
+    // smooth driver (critical)
+    quickToRef.current = gsap.quickTo(smoothObjRef.current, "p", {
+      duration: 0.18,
+      ease: "power2.out",
+      overwrite: true,
+      onUpdate: () => renderAt(smoothObjRef.current.p),
+    });
+
     return () => {
       window.removeEventListener("resize", compute);
       window.removeEventListener("orientationchange", compute);
+      quickToRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
