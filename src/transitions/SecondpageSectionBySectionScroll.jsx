@@ -260,6 +260,11 @@ export default function SecondPageSectionBySectionScroll() {
   const [renderPair, setRenderPair] = useState([0, 1]);
   const renderPairRef = useRef([0, 1]);
 
+  // ✅ FIX: eagerly warm the first visible section on mount (prevents initial black screen)
+  useEffect(() => {
+    import("../sections/ScientificInnovationExternal");
+  }, []);
+
   // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
   const [activeIndex, setActiveIndex] = useState(0);
   useMotionValueEvent(scrollYProgress, "change", (p) => {
