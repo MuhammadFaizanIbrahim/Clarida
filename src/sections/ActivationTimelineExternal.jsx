@@ -96,16 +96,6 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
   const ENTRY_REBASE_MAX = 0.35;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
-  // ✅ reverse safety (no stutter, no skip)
-  const prevIncomingRef = useRef(0);
-  const snapToStartLockRef = useRef(false);
-
-  const MAX_INDEX = timelineSteps.length - 1; // 5
-  const FIRST_STEP_P = 1 / MAX_INDEX; // 0.2
-  const SNAP_ZONE = FIRST_STEP_P * 0.55;
-  const SNAP_RELEASE = FIRST_STEP_P * 0.75;
-  const FAST_BACK_DELTA = FIRST_STEP_P * 0.35;
-
   // ✅ smooth internal progress (prevents teleport on parent progress jumps)
   const smoothObjRef = useRef({ p: 0 });
   const quickToRef = useRef(null);
@@ -193,9 +183,6 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
   };
 
   const resetToStart = () => {
-    snapToStartLockRef.current = false;
-    prevIncomingRef.current = 0;
-
     smoothObjRef.current.p = 0;
     setSmoothTarget(0);
 
@@ -208,52 +195,18 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
 
     const pIncoming = clamp01(pRaw);
 
-    const prev = prevIncomingRef.current;
-    const delta = prev - pIncoming;
-    const goingBack = pIncoming < prev - 0.0005;
-    const fastBack = goingBack && delta > FAST_BACK_DELTA;
-    prevIncomingRef.current = pIncoming;
-
     const startAt = activeStartRef.current || 0;
     const denom = 1 - startAt;
-    let p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
-
-    // ✅ robust lock rules (same behavior as regen fix)
-    if (goingBack && (p <= SNAP_ZONE || (fastBack && p <= FIRST_STEP_P * 1.2))) {
-      snapToStartLockRef.current = true;
-    }
-
-    if (snapToStartLockRef.current) {
-      if (!goingBack && p >= SNAP_RELEASE) {
-        snapToStartLockRef.current = false;
-      } else {
-        p = 0;
-      }
-    }
+    const p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
 
     setSmoothTarget(p);
   };
-
-  // ✅ on deactivate: if leaving while still within first two steps, force start pose
-  const prevActiveRef = useRef(active);
-  useEffect(() => {
-    if (prevActiveRef.current && !active) {
-      if (stepIndexRef.current <= 1) {
-        snapToStartLockRef.current = false;
-        smoothObjRef.current.p = 0;
-        renderAt(0);
-      }
-    }
-    prevActiveRef.current = active;
-  }, [active]);
 
   // ✅ on activate: choose rebase mode
   useEffect(() => {
     if (!active) return;
 
     const current = clamp01(mv.get?.() ?? 0);
-    prevIncomingRef.current = current;
-    snapToStartLockRef.current = false;
 
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
 

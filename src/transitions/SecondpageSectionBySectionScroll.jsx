@@ -1,5 +1,12 @@
 // src/transitions/SecondPageSectionBySectionScroll.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+} from "react";
 import {
   motion,
   useReducedMotion,
@@ -12,10 +19,15 @@ import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
 
 import CurveDivider from "../components/CurveDivider";
 
-import ClaridaScrollStore from "../sections/ClaridaScrollStore";
-import LifestyleVisionExternal from "../sections/LifestyleVisionExternal";
-import Footer from "../sections/Footer";
-import ScientificInnovationExternal from "../sections/ScientificInnovationExternal";
+// ✅ Lazy-load heavy sections so they don't load until needed
+const ClaridaScrollStore = lazy(() => import("../sections/ClaridaScrollStore"));
+const LifestyleVisionExternal = lazy(() =>
+  import("../sections/LifestyleVisionExternal")
+);
+const Footer = lazy(() => import("../sections/Footer"));
+const ScientificInnovationExternal = lazy(() =>
+  import("../sections/ScientificInnovationExternal")
+);
 
 function TransitionArc({ t }) {
   const prefersReducedMotion = useReducedMotion();
@@ -122,7 +134,13 @@ export default function SecondPageSectionBySectionScroll() {
     pinMode === "pinned"
       ? { position: "fixed", top: 0, left: 0, width: "100%", height: "100vh" }
       : pinMode === "after"
-      ? { position: "absolute", left: 0, bottom: 0, width: "100%", height: "100vh" }
+      ? {
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          width: "100%",
+          height: "100vh",
+        }
       : { position: "absolute", top: 0, left: 0, width: "100%", height: "100vh" };
 
   const bounds = useMemo(() => {
@@ -158,27 +176,39 @@ export default function SecondPageSectionBySectionScroll() {
 
   const sciToStoreT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.SCI_TO_STORE.start, bounds.SCI_TO_STORE.end], [0, 1], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.SCI_TO_STORE.start, bounds.SCI_TO_STORE.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const storeToLifeT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.STORE_TO_LIFE.start, bounds.STORE_TO_LIFE.end], [0, 1], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.STORE_TO_LIFE.start, bounds.STORE_TO_LIFE.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const lifeToFooterT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.LIFE_TO_FOOTER.start, bounds.LIFE_TO_FOOTER.end], [0, 1], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.LIFE_TO_FOOTER.start, bounds.LIFE_TO_FOOTER.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const lifeProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.STORE_TO_LIFE.start, bounds.LIFE_HOLD.end], [0, 1], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.STORE_TO_LIFE.start, bounds.LIFE_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const sciOpacity = prefersReducedMotion
     ? 1
@@ -193,7 +223,12 @@ export default function SecondPageSectionBySectionScroll() {
     ? 1
     : useTransform(
         scrollYProgress,
-        [bounds.SCI_TO_STORE.start, bounds.SCI_TO_STORE.end, bounds.STORE_HOLD.end, bounds.STORE_TO_LIFE.end],
+        [
+          bounds.SCI_TO_STORE.start,
+          bounds.SCI_TO_STORE.end,
+          bounds.STORE_HOLD.end,
+          bounds.STORE_TO_LIFE.end,
+        ],
         [0, 1, 1, 0],
         { clamp: true }
       );
@@ -202,7 +237,12 @@ export default function SecondPageSectionBySectionScroll() {
     ? 1
     : useTransform(
         scrollYProgress,
-        [bounds.STORE_TO_LIFE.start, bounds.STORE_TO_LIFE.end, bounds.LIFE_HOLD.end, bounds.LIFE_TO_FOOTER.end],
+        [
+          bounds.STORE_TO_LIFE.start,
+          bounds.STORE_TO_LIFE.end,
+          bounds.LIFE_HOLD.end,
+          bounds.LIFE_TO_FOOTER.end,
+        ],
         [0, 1, 1, 0],
         { clamp: true }
       );
@@ -216,6 +256,10 @@ export default function SecondPageSectionBySectionScroll() {
         { clamp: true }
       );
 
+  // ✅ Keep exactly 2 mounted based on progress region (no direction needed)
+  const [renderPair, setRenderPair] = useState([0, 1]);
+  const renderPairRef = useRef([0, 1]);
+
   // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
   const [activeIndex, setActiveIndex] = useState(0);
   useMotionValueEvent(scrollYProgress, "change", (p) => {
@@ -223,39 +267,69 @@ export default function SecondPageSectionBySectionScroll() {
     else if (p < bounds.STORE_TO_LIFE.start) setActiveIndex(1);
     else if (p < bounds.LIFE_TO_FOOTER.start) setActiveIndex(2);
     else setActiveIndex(3);
+
+    let nextPair;
+    if (p < bounds.SCI_TO_STORE.end) nextPair = [0, 1];
+    else if (p < bounds.STORE_TO_LIFE.end) nextPair = [1, 2];
+    else if (p < bounds.LIFE_TO_FOOTER.end) nextPair = [2, 3];
+    else nextPair = [3, 2];
+
+    const prevPair = renderPairRef.current;
+    if (prevPair[0] !== nextPair[0] || prevPair[1] !== nextPair[1]) {
+      renderPairRef.current = nextPair;
+      setRenderPair(nextPair);
+    }
   });
+
+  const shouldRender = (i) => i === renderPair[0] || i === renderPair[1];
 
   return (
     <section ref={sectionRef} className="relative isolate bg-black" style={{ height: `${TOTAL_VH}vh` }}>
       <div style={viewportStyle} className="overflow-hidden bg-black">
-        <motion.div
-          style={{ opacity: sciOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }}
-          className="absolute inset-0 z-10"
-        >
-          <ScientificInnovationExternal active={activeIndex === 0} />
-        </motion.div>
+        {shouldRender(0) && (
+          <motion.div
+            style={{ opacity: sciOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }}
+            className="absolute inset-0 z-10"
+          >
+            <Suspense fallback={null}>
+              <ScientificInnovationExternal active={activeIndex === 0} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div
-          style={{ opacity: storeOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }}
-          className="absolute inset-0 z-20"
-        >
-          <ClaridaScrollStore active={activeIndex === 1} />
-        </motion.div>
+        {shouldRender(1) && (
+          <motion.div
+            style={{ opacity: storeOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }}
+            className="absolute inset-0 z-20"
+          >
+            <Suspense fallback={null}>
+              <ClaridaScrollStore active={activeIndex === 1} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div
-          style={{ opacity: lifeOpacity, pointerEvents: activeIndex === 2 ? "auto" : "none" }}
-          className="absolute inset-0 z-30"
-        >
-          <LifestyleVisionExternal progress={lifeProgress} active={activeIndex === 2} />
-        </motion.div>
+        {shouldRender(2) && (
+          <motion.div
+            style={{ opacity: lifeOpacity, pointerEvents: activeIndex === 2 ? "auto" : "none" }}
+            className="absolute inset-0 z-30"
+          >
+            <Suspense fallback={null}>
+              <LifestyleVisionExternal progress={lifeProgress} active={activeIndex === 2} />
+            </Suspense>
+          </motion.div>
+        )}
 
         {/* ✅ FIX: use inline zIndex (don’t rely on z-999) */}
-        <motion.div
-          style={{ opacity: footerOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none", zIndex: 60 }}
-          className="absolute inset-0"
-        >
-          <Footer />
-        </motion.div>
+        {shouldRender(3) && (
+          <motion.div
+            style={{ opacity: footerOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none", zIndex: 60 }}
+            className="absolute inset-0"
+          >
+            <Suspense fallback={null}>
+              <Footer />
+            </Suspense>
+          </motion.div>
+        )}
 
         <TransitionArc t={sciToStoreT} />
         <TransitionArc t={storeToLifeT} />

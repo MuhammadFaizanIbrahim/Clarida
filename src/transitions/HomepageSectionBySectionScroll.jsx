@@ -1,5 +1,12 @@
 // src/transitions/HomepageSectionBySectionScroll.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+} from "react";
 import {
   motion,
   useReducedMotion,
@@ -11,17 +18,31 @@ import {
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
 
 import Hero from "../sections/Hero";
-import Testimonials from "../sections/Testimonials";
 import CurveDivider from "../components/CurveDivider";
 
-import InteractiveRegenerationExternal from "../sections/InteractiveRegenerationExternal";
-import ClaridaDifferenceExternal from "../sections/ClaridaDifferenceExternal";
+// ✅ Lazy-load heavy sections so they don't load until needed
+const Testimonials = lazy(() => import("../sections/Testimonials"));
 
-import RegenerationTimelineExternal from "../sections/RegenerationTimelineExternal";
-import ActivationTimelineExternal from "../sections/ActivationTimelineExternal";
-import VisionaryGuaranteeExternal from "../sections/VisionaryGuaranteeExternal";
-import GlobalCommunityImpactExternal from "../sections/GlobalCommunityImpactExternal";
-import Footer from "../sections/Footer";
+const InteractiveRegenerationExternal = lazy(() =>
+  import("../sections/InteractiveRegenerationExternal")
+);
+const ClaridaDifferenceExternal = lazy(() =>
+  import("../sections/ClaridaDifferenceExternal")
+);
+
+const RegenerationTimelineExternal = lazy(() =>
+  import("../sections/RegenerationTimelineExternal")
+);
+const ActivationTimelineExternal = lazy(() =>
+  import("../sections/ActivationTimelineExternal")
+);
+const VisionaryGuaranteeExternal = lazy(() =>
+  import("../sections/VisionaryGuaranteeExternal")
+);
+const GlobalCommunityImpactExternal = lazy(() =>
+  import("../sections/GlobalCommunityImpactExternal")
+);
+const Footer = lazy(() => import("../sections/Footer"));
 
 function TransitionArc({ t }) {
   const prefersReducedMotion = useReducedMotion();
@@ -154,7 +175,13 @@ export default function HomepageSectionBySectionScroll() {
     pinMode === "pinned"
       ? { position: "fixed", top: 0, left: 0, width: "100%", height: "100vh" }
       : pinMode === "after"
-      ? { position: "absolute", left: 0, bottom: 0, width: "100%", height: "100vh" }
+      ? {
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          width: "100%",
+          height: "100vh",
+        }
       : { position: "absolute", top: 0, left: 0, width: "100%", height: "100vh" };
 
   // bounds
@@ -210,88 +237,251 @@ export default function HomepageSectionBySectionScroll() {
   // transitions
   const heroToInterT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.HERO_TO_INTER.start, bounds.HERO_TO_INTER.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.HERO_TO_INTER.start, bounds.HERO_TO_INTER.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const interToTestT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.INTER_TO_TEST.start, bounds.INTER_TO_TEST.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.INTER_TO_TEST.start, bounds.INTER_TO_TEST.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const testToDiffT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.TEST_TO_DIFF.start, bounds.TEST_TO_DIFF.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.TEST_TO_DIFF.start, bounds.TEST_TO_DIFF.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const diffToRegenT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.DIFF_TO_REGEN.start, bounds.DIFF_TO_REGEN.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.DIFF_TO_REGEN.start, bounds.DIFF_TO_REGEN.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const regenToActT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.REGEN_TO_ACT.start, bounds.REGEN_TO_ACT.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.REGEN_TO_ACT.start, bounds.REGEN_TO_ACT.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const actToGuarT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.ACT_TO_GUAR.start, bounds.ACT_TO_GUAR.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.ACT_TO_GUAR.start, bounds.ACT_TO_GUAR.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const guarToImpactT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.GUAR_TO_IMPACT.start, bounds.GUAR_TO_IMPACT.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.GUAR_TO_IMPACT.start, bounds.GUAR_TO_IMPACT.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const impactToFooterT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.IMPACT_TO_FOOTER.start, bounds.IMPACT_TO_FOOTER.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.IMPACT_TO_FOOTER.start, bounds.IMPACT_TO_FOOTER.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   // progress for scrubbed sections
   const interProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.HERO_TO_INTER.start, bounds.INTER_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.HERO_TO_INTER.start, bounds.INTER_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const diffProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.TEST_TO_DIFF.start, bounds.DIFF_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.TEST_TO_DIFF.start, bounds.DIFF_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const regenProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.DIFF_TO_REGEN.start, bounds.REGEN_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.DIFF_TO_REGEN.start, bounds.REGEN_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const actProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.REGEN_TO_ACT.start, bounds.ACT_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.REGEN_TO_ACT.start, bounds.ACT_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const guarProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.ACT_TO_GUAR.start, bounds.GUAR_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.ACT_TO_GUAR.start, bounds.GUAR_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const impactProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.GUAR_TO_IMPACT.start, bounds.IMPACT_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.GUAR_TO_IMPACT.start, bounds.IMPACT_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   // opacity envelopes
-  const heroOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.HERO_HOLD.start, bounds.HERO_HOLD.end, bounds.HERO_TO_INTER.end], [1, 1, 0], { clamp: true });
+  const heroOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [bounds.HERO_HOLD.start, bounds.HERO_HOLD.end, bounds.HERO_TO_INTER.end],
+        [1, 1, 0],
+        { clamp: true }
+      );
 
-  const interOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.HERO_TO_INTER.start, bounds.HERO_TO_INTER.end, bounds.INTER_HOLD.end, bounds.INTER_TO_TEST.end], [0, 1, 1, 0], { clamp: true });
+  const interOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.HERO_TO_INTER.start,
+          bounds.HERO_TO_INTER.end,
+          bounds.INTER_HOLD.end,
+          bounds.INTER_TO_TEST.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const testOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.INTER_TO_TEST.start, bounds.INTER_TO_TEST.end, bounds.TEST_HOLD.end, bounds.TEST_TO_DIFF.end], [0, 1, 1, 0], { clamp: true });
+  const testOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.INTER_TO_TEST.start,
+          bounds.INTER_TO_TEST.end,
+          bounds.TEST_HOLD.end,
+          bounds.TEST_TO_DIFF.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const diffOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.TEST_TO_DIFF.start, bounds.TEST_TO_DIFF.end, bounds.DIFF_HOLD.end, bounds.DIFF_TO_REGEN.end], [0, 1, 1, 0], { clamp: true });
+  const diffOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.TEST_TO_DIFF.start,
+          bounds.TEST_TO_DIFF.end,
+          bounds.DIFF_HOLD.end,
+          bounds.DIFF_TO_REGEN.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const regenOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.DIFF_TO_REGEN.start, bounds.DIFF_TO_REGEN.end, bounds.REGEN_HOLD.end, bounds.REGEN_TO_ACT.end], [0, 1, 1, 0], { clamp: true });
+  const regenOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.DIFF_TO_REGEN.start,
+          bounds.DIFF_TO_REGEN.end,
+          bounds.REGEN_HOLD.end,
+          bounds.REGEN_TO_ACT.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const actOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.REGEN_TO_ACT.start, bounds.REGEN_TO_ACT.end, bounds.ACT_HOLD.end, bounds.ACT_TO_GUAR.end], [0, 1, 1, 0], { clamp: true });
+  const actOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.REGEN_TO_ACT.start,
+          bounds.REGEN_TO_ACT.end,
+          bounds.ACT_HOLD.end,
+          bounds.ACT_TO_GUAR.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const guarOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.ACT_TO_GUAR.start, bounds.ACT_TO_GUAR.end, bounds.GUAR_HOLD.end, bounds.GUAR_TO_IMPACT.end], [0, 1, 1, 0], { clamp: true });
+  const guarOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.ACT_TO_GUAR.start,
+          bounds.ACT_TO_GUAR.end,
+          bounds.GUAR_HOLD.end,
+          bounds.GUAR_TO_IMPACT.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const impactOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.GUAR_TO_IMPACT.start, bounds.GUAR_TO_IMPACT.end, bounds.IMPACT_HOLD.end, bounds.IMPACT_TO_FOOTER.end], [0, 1, 1, 0], { clamp: true });
+  const impactOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.GUAR_TO_IMPACT.start,
+          bounds.GUAR_TO_IMPACT.end,
+          bounds.IMPACT_HOLD.end,
+          bounds.IMPACT_TO_FOOTER.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const footerOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.IMPACT_TO_FOOTER.start, bounds.IMPACT_TO_FOOTER.end, bounds.FOOTER_HOLD.end], [0, 1, 1], { clamp: true });
+  const footerOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [bounds.IMPACT_TO_FOOTER.start, bounds.IMPACT_TO_FOOTER.end, bounds.FOOTER_HOLD.end],
+        [0, 1, 1],
+        { clamp: true }
+      );
+
+  // ✅ Keep exactly 2 mounted based on progress region (no direction needed)
+  const [renderPair, setRenderPair] = useState([0, 1]);
+  const renderPairRef = useRef([0, 1]);
 
   // pointer events
   const [activeIndex, setActiveIndex] = useState(0);
@@ -305,47 +495,100 @@ export default function HomepageSectionBySectionScroll() {
     else if (p < bounds.GUAR_TO_IMPACT.end) setActiveIndex(6);
     else if (p < bounds.IMPACT_TO_FOOTER.end) setActiveIndex(7);
     else setActiveIndex(8);
+
+    let nextPair;
+    if (p < bounds.HERO_TO_INTER.end) nextPair = [0, 1];
+    else if (p < bounds.INTER_TO_TEST.end) nextPair = [1, 2];
+    else if (p < bounds.TEST_TO_DIFF.end) nextPair = [2, 3];
+    else if (p < bounds.DIFF_TO_REGEN.end) nextPair = [3, 4];
+    else if (p < bounds.REGEN_TO_ACT.end) nextPair = [4, 5];
+    else if (p < bounds.ACT_TO_GUAR.end) nextPair = [5, 6];
+    else if (p < bounds.GUAR_TO_IMPACT.end) nextPair = [6, 7];
+    else if (p < bounds.IMPACT_TO_FOOTER.end) nextPair = [7, 8];
+    else nextPair = [8, 7];
+
+    const prevPair = renderPairRef.current;
+    if (prevPair[0] !== nextPair[0] || prevPair[1] !== nextPair[1]) {
+      renderPairRef.current = nextPair;
+      setRenderPair(nextPair);
+    }
   });
+
+  const shouldRender = (i) => i === renderPair[0] || i === renderPair[1];
 
   return (
     <section ref={sectionRef} className="relative isolate bg-black" style={{ height: `${TOTAL_VH}vh` }}>
       <div style={viewportStyle} className="overflow-hidden bg-black">
 
-        <motion.div style={{ opacity: heroOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }} className="absolute inset-0 z-10">
-        <Hero active={activeIndex === 0} />
-        </motion.div>
+        {shouldRender(0) && (
+          <motion.div style={{ opacity: heroOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }} className="absolute inset-0 z-10">
+            <Hero active={activeIndex === 0} />
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: interOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }} className="absolute inset-0 z-20">
-          <InteractiveRegenerationExternal progress={interProgress} active={activeIndex === 1} />
-        </motion.div>
+        {shouldRender(1) && (
+          <motion.div style={{ opacity: interOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }} className="absolute inset-0 z-20">
+            <Suspense fallback={null}>
+              <InteractiveRegenerationExternal progress={interProgress} active={activeIndex === 1} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: testOpacity, pointerEvents: activeIndex === 2 ? "auto" : "none" }} className="absolute inset-0 z-30">
-          <Testimonials />
-        </motion.div>
+        {shouldRender(2) && (
+          <motion.div style={{ opacity: testOpacity, pointerEvents: activeIndex === 2 ? "auto" : "none" }} className="absolute inset-0 z-30">
+            <Suspense fallback={null}>
+              <Testimonials />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: diffOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none" }} className="absolute inset-0 z-40">
-          <ClaridaDifferenceExternal progress={diffProgress} />
-        </motion.div>
+        {shouldRender(3) && (
+          <motion.div style={{ opacity: diffOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none" }} className="absolute inset-0 z-40">
+            <Suspense fallback={null}>
+              <ClaridaDifferenceExternal progress={diffProgress} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: regenOpacity, pointerEvents: activeIndex === 4 ? "auto" : "none" }} className="absolute inset-0 z-[45]">
-          <RegenerationTimelineExternal progress={regenProgress} active={activeIndex === 4} />
-        </motion.div>
+        {shouldRender(4) && (
+          <motion.div style={{ opacity: regenOpacity, pointerEvents: activeIndex === 4 ? "auto" : "none" }} className="absolute inset-0 z-[45]">
+            <Suspense fallback={null}>
+              <RegenerationTimelineExternal progress={regenProgress} active={activeIndex === 4} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: actOpacity, pointerEvents: activeIndex === 5 ? "auto" : "none" }} className="absolute inset-0 z-[46]">
-        <ActivationTimelineExternal progress={actProgress} active={activeIndex === 5} />
-        </motion.div>
+        {shouldRender(5) && (
+          <motion.div style={{ opacity: actOpacity, pointerEvents: activeIndex === 5 ? "auto" : "none" }} className="absolute inset-0 z-[46]">
+            <Suspense fallback={null}>
+              <ActivationTimelineExternal progress={actProgress} active={activeIndex === 5} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: guarOpacity, pointerEvents: activeIndex === 6 ? "auto" : "none" }} className="absolute inset-0 z-[47]">
-          <VisionaryGuaranteeExternal progress={guarProgress} />
-        </motion.div>
+        {shouldRender(6) && (
+          <motion.div style={{ opacity: guarOpacity, pointerEvents: activeIndex === 6 ? "auto" : "none" }} className="absolute inset-0 z-[47]">
+            <Suspense fallback={null}>
+              <VisionaryGuaranteeExternal progress={guarProgress} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: impactOpacity, pointerEvents: activeIndex === 7 ? "auto" : "none" }} className="absolute inset-0 z-[48]">
-          <GlobalCommunityImpactExternal progress={impactProgress} />
-        </motion.div>
+        {shouldRender(7) && (
+          <motion.div style={{ opacity: impactOpacity, pointerEvents: activeIndex === 7 ? "auto" : "none" }} className="absolute inset-0 z-[48]">
+            <Suspense fallback={null}>
+              <GlobalCommunityImpactExternal progress={impactProgress} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: footerOpacity, pointerEvents: activeIndex === 8 ? "auto" : "none" }} className="absolute inset-0 z-[49]">
-          <Footer />
-        </motion.div>
+        {shouldRender(8) && (
+          <motion.div style={{ opacity: footerOpacity, pointerEvents: activeIndex === 8 ? "auto" : "none" }} className="absolute inset-0 z-[49]">
+            <Suspense fallback={null}>
+              <Footer />
+            </Suspense>
+          </motion.div>
+        )}
 
         <TransitionArc t={heroToInterT} />
         <TransitionArc t={interToTestT} />
