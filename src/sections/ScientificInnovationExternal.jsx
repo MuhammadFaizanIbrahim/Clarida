@@ -19,6 +19,10 @@ const ScientificInnovationExternal = ({ active = true }) => {
   const [isInView, setIsInView] = useState(false);
   const [isAudioOn, setIsAudioOn] = useState(false);
 
+  // 🔹 NEW: lazy-load media state (same pattern as Hero)
+  const [videoSrc, setVideoSrc] = useState(null);
+  const [posterSrc, setPosterSrc] = useState(null);
+
   const isInViewRef = useRef(false);
   const isAudioOnRef = useRef(false);
 
@@ -92,7 +96,10 @@ const ScientificInnovationExternal = ({ active = true }) => {
 
   // ---------- INITIAL SYNC WITH GLOBAL TOGGLE ----------
   useEffect(() => {
-    if (typeof window !== "undefined" && typeof window.__claridaAudioOn === "boolean") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.__claridaAudioOn === "boolean"
+    ) {
       const globalOn = window.__claridaAudioOn;
       setIsAudioOn(globalOn);
       isAudioOnRef.current = globalOn;
@@ -108,6 +115,30 @@ const ScientificInnovationExternal = ({ active = true }) => {
     isInViewRef.current = inView;
   }, [active]);
 
+  // ------------- LAZY-LOAD BACKGROUND VIDEO & POSTER (same pattern as Hero) -------------
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // only set once
+            setVideoSrc("/videos/scientific.webm");
+            setPosterSrc("/images/scientific.jpg");
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  }, []);
+
   // ---------- LISTEN FOR HEADER AUDIO TOGGLE ----------
   useEffect(() => {
     const handleAudioToggle = (e) => {
@@ -121,7 +152,8 @@ const ScientificInnovationExternal = ({ active = true }) => {
     };
 
     window.addEventListener("clarida-audio-toggle", handleAudioToggle);
-    return () => window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
+    return () =>
+      window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
   }, []);
 
   // ---------- SINGLE SOURCE OF TRUTH FOR PLAY / PAUSE ----------
@@ -159,11 +191,12 @@ const ScientificInnovationExternal = ({ active = true }) => {
       {/* Background Video */}
       <video
         className="absolute inset-0 w-full h-full object-cover"
-        src="/videos/scientific.webm"
-        poster="/images/scientific.jpg"
-        autoPlay
+        src={videoSrc || undefined}
+        poster={posterSrc || undefined}
+        autoPlay={!!videoSrc}
         muted
         playsInline
+        preload="none"
       />
 
       {/* 🔊 SECTION AUDIO */}
@@ -185,7 +218,10 @@ const ScientificInnovationExternal = ({ active = true }) => {
         variants={containerVariants}
       >
         {/* Left Side */}
-        <motion.div className="w-full flex flex-col gap-3 md:gap-6" variants={containerVariants}>
+        <motion.div
+          className="w-full flex flex-col gap-3 md:gap-6"
+          variants={containerVariants}
+        >
           <motion.h1 className="h2-text" variants={itemVariants}>
             Science That <span className="h2-text-bold">Restores</span>
           </motion.h1>
@@ -200,14 +236,21 @@ const ScientificInnovationExternal = ({ active = true }) => {
             className="hero-paragraph-normal w-[350px] md:w-[400px] lg:w-[40.625vw] text-center md:text-left"
             variants={itemVariants}
           >
-            Clarida is built on decades of regenerative science — and the data behind this field is
-            remarkable.
+            Clarida is built on decades of regenerative science — and the data
+            behind this field is remarkable.
           </motion.p>
 
-          <motion.div variants={itemVariants} transition={{ duration: 1, delay: 1.2 }}>
+          <motion.div
+            variants={itemVariants}
+            transition={{ duration: 1, delay: 1.2 }}
+          >
             <Button extra="gap-2 mt-5 lg:mt-3 2xl:mt-6 lg:gap-4 lg:py-[12px] lg:px-[12px] flex">
               View Scientific Proof
-              <img src="icons/arrowIcon.svg" alt="Clarida Text" className="rotate-270" />
+              <img
+                src="icons/arrowIcon.svg"
+                alt="Clarida Text"
+                className="rotate-270"
+              />
             </Button>
           </motion.div>
         </EntranceAnimation>
