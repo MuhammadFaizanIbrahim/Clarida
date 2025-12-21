@@ -1,31 +1,32 @@
 // useLenisSmoothScroll.jsx
 import { useLayoutEffect } from "react";
 import Lenis from "@studio-freight/lenis";
+import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 export function useLenisSmoothScroll() {
   useLayoutEffect(() => {
-    // create Lenis instance
+    gsap.registerPlugin(ScrollTrigger);
+
     const lenis = new Lenis({
-      duration: 1.2,      // overall smoothness (higher = smoother / slower)
+      duration: 1.2,
       smoothWheel: true,
       smoothTouch: false,
-      lerp: 0.1,          // interpolation factor; lower = more easing
+      lerp: 0.1,
       wheelMultiplier: 0.9,
     });
 
-    // update ScrollTrigger on Lenis scroll
-    lenis.on("scroll", () => {
-      ScrollTrigger.update();
-    });
+    lenis.on("scroll", ScrollTrigger.update);
 
-    // drive Lenis with requestAnimationFrame
     let rafId;
     const raf = (time) => {
       lenis.raf(time);
       rafId = requestAnimationFrame(raf);
     };
     rafId = requestAnimationFrame(raf);
+
+    // ensures pinned/triggered sections calculate correctly after Lenis starts
+    ScrollTrigger.refresh();
 
     return () => {
       cancelAnimationFrame(rafId);

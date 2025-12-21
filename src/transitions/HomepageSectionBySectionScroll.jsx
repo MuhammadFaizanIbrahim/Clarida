@@ -8,6 +8,8 @@ import {
   useMotionValueEvent,
 } from "framer-motion";
 
+import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
+
 import Hero from "../sections/Hero";
 import Testimonials from "../sections/Testimonials";
 import CurveDivider from "../components/CurveDivider";
@@ -44,6 +46,8 @@ function TransitionArc({ t }) {
 }
 
 export default function HomepageSectionBySectionScroll() {
+  useLenisSmoothScroll();
+
   const sectionRef = useRef(null);
   const prefersReducedMotion = useReducedMotion();
 

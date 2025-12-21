@@ -8,6 +8,8 @@ import {
   useMotionValueEvent,
 } from "framer-motion";
 
+import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
+
 import CurveDivider from "../components/CurveDivider";
 
 import ClaridaScrollStore from "../sections/ClaridaScrollStore";
@@ -39,6 +41,8 @@ function TransitionArc({ t }) {
 }
 
 export default function SecondPageSectionBySectionScroll() {
+  useLenisSmoothScroll();
+
   const sectionRef = useRef(null);
   const prefersReducedMotion = useReducedMotion();
 

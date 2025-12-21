@@ -180,18 +180,6 @@ export default function RegenerationTimelineExternal({
   const ENTRY_REBASE_MAX = 0.22;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
-  // ✅ reverse safety (no stutter, no skip)
-  const prevIncomingRef = useRef(0);
-  const snapToStartLockRef = useRef(false);
-
-  const MAX_INDEX = timelineSteps.length - 1; // 8
-  const FIRST_STEP_P = 1 / MAX_INDEX; // step 1->2 boundary in p space
-  const SNAP_ZONE = FIRST_STEP_P * 0.55; // only lock very near start (prevents jitter)
-  const SNAP_RELEASE = FIRST_STEP_P * 0.75; // hysteresis release
-
-  // if user reverse-scrolls fast, we lock even earlier so it can't exit from 10am
-  const FAST_BACK_DELTA = FIRST_STEP_P * 0.35;
-
   // ✅ smooth internal progress (prevents teleport on parent progress jumps)
   const smoothObjRef = useRef({ p: 0 });
   const quickToRef = useRef(null);
@@ -396,9 +384,6 @@ export default function RegenerationTimelineExternal({
   // ----------------- ✅ END AUDIO -----------------
 
   const resetToStart = () => {
-    snapToStartLockRef.current = false;
-    prevIncomingRef.current = 0;
-
     smoothObjRef.current.p = 0;
     setSmoothTarget(0);
 
@@ -411,54 +396,18 @@ export default function RegenerationTimelineExternal({
 
     const pIncoming = clamp01(pRaw);
 
-    const prev = prevIncomingRef.current;
-    const delta = prev - pIncoming;
-    const goingBack = pIncoming < prev - 0.0005;
-    const fastBack = goingBack && delta > FAST_BACK_DELTA;
-    prevIncomingRef.current = pIncoming;
-
     const startAt = activeStartRef.current || 0;
     const denom = 1 - startAt;
-    let p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
-
-    // ✅ robust lock rules:
-    // - slow back near start => lock (prevents jitter)
-    // - fast back within first step span => lock (prevents skipping start on fast exit)
-    if (goingBack && (p <= SNAP_ZONE || (fastBack && p <= FIRST_STEP_P * 1.2))) {
-      snapToStartLockRef.current = true;
-    }
-
-    if (snapToStartLockRef.current) {
-      // release only after moving forward clearly
-      if (!goingBack && p >= SNAP_RELEASE) {
-        snapToStartLockRef.current = false;
-      } else {
-        p = 0;
-      }
-    }
+    const p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
 
     setSmoothTarget(p);
   };
-
-  // ✅ on deactivate: if leaving while still within first two steps, force start pose
-  const prevActiveRef = useRef(active);
-  useEffect(() => {
-    if (prevActiveRef.current && !active) {
-      if (stepIndexRef.current <= 1) {
-        snapToStartLockRef.current = false;
-        smoothObjRef.current.p = 0;
-        renderAt(0);
-      }
-    }
-    prevActiveRef.current = active;
-  }, [active]);
 
   // ✅ on activate: decide whether to rebase or not
   useEffect(() => {
     if (!active) return;
 
     const current = clamp01(mv.get?.() ?? 0);
-    prevIncomingRef.current = current;
 
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
 
@@ -659,7 +608,9 @@ export default function RegenerationTimelineExternal({
                         {!isLastTwo && item.subtitle && (
                           <>
                             {" "}
-                            <span className="h2-text-bold">{item.subtitle}</span>
+                            <span className="h2-text-bold">
+                              {item.subtitle}
+                            </span>
                           </>
                         )}
                       </>
