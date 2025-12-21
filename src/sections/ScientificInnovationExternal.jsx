@@ -160,7 +160,7 @@ const ScientificInnovationExternal = ({ active = true }) => {
       <video
         className="absolute inset-0 w-full h-full object-cover"
         src="/videos/scientific.webm"
-        poster="/images/scientific-bg.jpg"
+        poster="/images/scientific.jpg"
         autoPlay
         muted
         playsInline
