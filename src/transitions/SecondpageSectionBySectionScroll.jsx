@@ -25,9 +25,9 @@ const LifestyleVisionExternal = lazy(() =>
   import("../sections/LifestyleVisionExternal")
 );
 const Footer = lazy(() => import("../sections/Footer"));
-const ScientificInnovationExternal = lazy(() =>
-  import("../sections/ScientificInnovationExternal")
-);
+
+// ✅ FIX: DO NOT lazy-load the first visible section (prevents initial black screen)
+import ScientificInnovationExternal from "../sections/ScientificInnovationExternal";
 
 function TransitionArc({ t }) {
   const prefersReducedMotion = useReducedMotion();
@@ -260,11 +260,6 @@ export default function SecondPageSectionBySectionScroll() {
   const [renderPair, setRenderPair] = useState([0, 1]);
   const renderPairRef = useRef([0, 1]);
 
-  // ✅ FIX: eagerly warm the first visible section on mount (prevents initial black screen)
-  useEffect(() => {
-    import("../sections/ScientificInnovationExternal");
-  }, []);
-
   // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
   const [activeIndex, setActiveIndex] = useState(0);
   useMotionValueEvent(scrollYProgress, "change", (p) => {
@@ -296,9 +291,7 @@ export default function SecondPageSectionBySectionScroll() {
             style={{ opacity: sciOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }}
             className="absolute inset-0 z-10"
           >
-            <Suspense fallback={null}>
-              <ScientificInnovationExternal active={activeIndex === 0} />
-            </Suspense>
+            <ScientificInnovationExternal active={activeIndex === 0} />
           </motion.div>
         )}
 
@@ -324,7 +317,6 @@ export default function SecondPageSectionBySectionScroll() {
           </motion.div>
         )}
 
-        {/* ✅ FIX: use inline zIndex (don’t rely on z-999) */}
         {shouldRender(3) && (
           <motion.div
             style={{ opacity: footerOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none", zIndex: 60 }}
