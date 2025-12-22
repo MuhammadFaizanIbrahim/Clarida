@@ -65,6 +65,9 @@ const ClaridaScrollStore = () => {
           >
             <Button              
               extra="gap-2 mt-5 lg:mt-3 2xl:mt-6 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+              }}
             >
               Reserve My Early Access
               <img

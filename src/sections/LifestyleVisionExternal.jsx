@@ -391,7 +391,10 @@ export default function LifestyleVisionExternal({
           </h1>
 
           {!isMobile && (
-            <Button extra="gap-2 mt-5 md:mt-2 lg:mt-0 2xl:mt-2 lg:gap-4 lg:py-3 lg:px-5 flex">
+            <Button extra="gap-2 mt-5 md:mt-2 lg:mt-0 2xl:mt-2 lg:gap-4 lg:py-3 lg:px-5 flex"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+            }}>
               Start Your Clarida Story Today
               <img
                 src="icons/arrowIcon.svg"

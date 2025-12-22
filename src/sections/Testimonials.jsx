@@ -467,6 +467,9 @@ const Testimonials = () => {
         >
           <Button
             extra="gap-2 mt-5 lg:mt-9 lg:gap-4 lg:py-[12px] lg:px-[12px] whitespace-nowrap"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+            }}
           >
             Join The Vision Revolution
             <img

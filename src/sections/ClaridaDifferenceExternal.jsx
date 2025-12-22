@@ -66,11 +66,17 @@ export default function ClaridaDifferenceExternal({ progress }) {
     // nearest loaded fallback
     if (!img) {
       for (let i = frameIndex - 1; i >= 0; i--) {
-        if (frames[i]) { img = frames[i]; break; }
+        if (frames[i]) {
+          img = frames[i];
+          break;
+        }
       }
       if (!img) {
         for (let i = frameIndex + 1; i < frames.length; i++) {
-          if (frames[i]) { img = frames[i]; break; }
+          if (frames[i]) {
+            img = frames[i];
+            break;
+          }
         }
       }
     }
@@ -119,7 +125,8 @@ export default function ClaridaDifferenceExternal({ progress }) {
       canvas.height = height * dpr;
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const current = lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
+      const current =
+        lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
       drawFrame(current);
     };
 
@@ -134,7 +141,10 @@ export default function ClaridaDifferenceExternal({ progress }) {
 
   // drive frames + blur from external progress
   useMotionValueEvent(progress, "change", (p) => {
-    const frameIndex = Math.min(TOTAL_FRAMES - 1, Math.floor(p * (TOTAL_FRAMES - 1)));
+    const frameIndex = Math.min(
+      TOTAL_FRAMES - 1,
+      Math.floor(p * (TOTAL_FRAMES - 1))
+    );
     if (frameIndex !== lastFrameIndexRef.current) {
       lastFrameIndexRef.current = frameIndex;
       drawFrame(frameIndex);
@@ -156,7 +166,10 @@ export default function ClaridaDifferenceExternal({ progress }) {
   });
 
   return (
-    <section ref={sectionRef} className="relative h-screen w-screen overflow-hidden flex items-center justify-center">
+    <section
+      ref={sectionRef}
+      className="relative h-screen w-screen overflow-hidden flex items-center justify-center"
+    >
       <canvas ref={canvasRef} className="h-full w-full block" />
 
       <div className="absolute inset-0 bg-black/35 md:bg-black/40 lg:bg-black/45 pointer-events-none z-10" />
@@ -174,13 +187,23 @@ export default function ClaridaDifferenceExternal({ progress }) {
           The Clarida Difference:
           <br />
           <span className="mt-5 md:mt-3 inline-block">
-            Precision-Timed <span className="h2-text-bold">Vision Recovery</span>
+            Precision-Timed{" "}
+            <span className="h2-text-bold">Vision Recovery</span>
           </span>
         </h2>
 
-        <Button extra="gap-2 mt-5 lg:mt-9 lg:gap-4 lg:py-[12px] lg:px-[12px] flex">
+        <Button
+          extra="gap-2 mt-5 lg:mt-9 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+          }}
+        >
           Begin Your Journey
-          <img src="icons/arrowIcon.svg" alt="Clarida Text" className="rotate-270" />
+          <img
+            src="icons/arrowIcon.svg"
+            alt="Clarida Text"
+            className="rotate-270"
+          />
         </Button>
       </div>
     </section>

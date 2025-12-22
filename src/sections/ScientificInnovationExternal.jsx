@@ -244,7 +244,10 @@ const ScientificInnovationExternal = ({ active = true }) => {
             variants={itemVariants}
             transition={{ duration: 1, delay: 1.2 }}
           >
-            <Button extra="gap-2 mt-5 lg:mt-3 2xl:mt-6 lg:gap-4 lg:py-[12px] lg:px-[12px] flex">
+            <Button extra="gap-2 mt-5 lg:mt-3 2xl:mt-6 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+            }}>
               View Scientific Proof
               <img
                 src="icons/arrowIcon.svg"

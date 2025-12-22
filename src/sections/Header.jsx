@@ -1,5 +1,7 @@
+// Header.jsx (only add the handler + wrap the Button with onClick)
+
 import React, { useState, useEffect } from "react";
-import {FiMenu, FiX} from "react-icons/fi";
+import { FiMenu, FiX } from "react-icons/fi";
 import Button from "../components/Button";
 import DropdownMenu from "../components/DropdownMenuBox";
 import { Link, useLocation } from "react-router-dom";
@@ -107,6 +109,12 @@ const Header = () => {
     setTimeout(() => {
       setIsMenuOpen(false);
     }, delay);
+  };
+
+  // ✅ NEW: jump-to-footer trigger (wrappers will handle it)
+  const jumpToFooter = () => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
   };
 
   return (
@@ -223,23 +231,21 @@ const Header = () => {
         <div className="flex items-center gap-5 md:gap-4">
           {/* Desktop "Begin your journey" button (NOT mobile) */}
           {!isMobile && (
-            <Button
-              variant="btn-header"
-              extra="
+            <span onClick={jumpToFooter} className="contents">
+              <Button
+                variant="btn-header"
+                extra="
               hidden md:inline-flex
               md:px-4 md:py-2
               lg:px-6 lg:py-3
               lg:gap-4
               whitespace-nowrap
             "
-            >
-              Begin your journey
-              <img
-                src="icons/arrowIcon.svg"
-                alt=""
-                className="rotate-270"
-              />
-            </Button>
+              >
+                Begin your journey
+                <img src="icons/arrowIcon.svg" alt="" className="rotate-270" />
+              </Button>
+            </span>
           )}
 
           {/* AUDIO TOGGLE BUTTON */}
@@ -265,7 +271,7 @@ const Header = () => {
         </div>
       </header>
 
-      {/* Mobile Menu Panel – always rendered on mobile, animated with opacity/translate */}
+      {/* Mobile Menu Panel */}
       {isMobile && (
         <div
           className={`
@@ -279,7 +285,7 @@ const Header = () => {
             }
           `}
         >
-          <div className="py-22 px-7 flex flex-col gap-3">
+          <div className="py-22 px-7 -mb-22 flex flex-col gap-3">
             {/* Close menu on click */}
             <Link
               to="#"
@@ -383,6 +389,10 @@ const Header = () => {
                 gap-2
                 py-3 px-3
               "
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+                closeMenuWithDelay();
+              }}
             >
               Begin your journey
               <img

@@ -141,7 +141,13 @@ export default function SecondPageSectionBySectionScroll() {
           width: "100%",
           height: "100vh",
         }
-      : { position: "absolute", top: 0, left: 0, width: "100%", height: "100vh" };
+      : {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100vh",
+        };
 
   const bounds = useMemo(() => {
     let acc = 0;
@@ -260,6 +266,65 @@ export default function SecondPageSectionBySectionScroll() {
   const [renderPair, setRenderPair] = useState([0, 1]);
   const renderPairRef = useRef([0, 1]);
 
+  // ✅ NEW: jump-to-footer lock (prevents renderPair from changing during the jump animation)
+  const jumpingRef = useRef(false);
+  const jumpTimeoutRef = useRef(null);
+
+  // ✅ NEW: listen for header button event, jump to last transition and play arc into footer
+  useEffect(() => {
+    const scrollToY = (y, opts) => {
+      if (window.lenis && typeof window.lenis.scrollTo === "function") {
+        window.lenis.scrollTo(y, opts);
+      } else {
+        window.scrollTo({
+          top: y,
+          left: 0,
+          behavior: opts?.immediate ? "auto" : "smooth",
+        });
+      }
+    };
+
+    const onJumpFooter = () => {
+      const { start, end } = range;
+      if (!start && !end) return;
+
+      const dist = end - start;
+
+      // force last pair mounted so we don't flash other sections
+      jumpingRef.current = true;
+      const lastPair = [2, 3];
+      renderPairRef.current = lastPair;
+      setRenderPair(lastPair);
+
+      // Start a tiny bit BEFORE the transition (still on Life),
+      // then animate to a bit AFTER the transition (inside Footer hold).
+      const eps = 0.001;
+
+      const pStart = Math.max(0, bounds.LIFE_TO_FOOTER.start - eps);
+      const pEnd = Math.min(1, bounds.LIFE_TO_FOOTER.end + 0.14); // go INTO footer hold
+
+      const yStart = start + pStart * dist;
+      const yEnd = Math.min(end - 2, start + pEnd * dist);
+
+      scrollToY(yStart, { immediate: true });
+
+      requestAnimationFrame(() => {
+        scrollToY(yEnd, { duration: 1.2 });
+
+        if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+        jumpTimeoutRef.current = setTimeout(() => {
+          jumpingRef.current = false;
+        }, 1600);
+      });
+    };
+
+    window.addEventListener("clarida-jump-footer", onJumpFooter);
+    return () => {
+      window.removeEventListener("clarida-jump-footer", onJumpFooter);
+      if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+    };
+  }, [range, bounds]);
+
   // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
   const [activeIndex, setActiveIndex] = useState(0);
   useMotionValueEvent(scrollYProgress, "change", (p) => {
@@ -267,6 +332,9 @@ export default function SecondPageSectionBySectionScroll() {
     else if (p < bounds.STORE_TO_LIFE.start) setActiveIndex(1);
     else if (p < bounds.LIFE_TO_FOOTER.start) setActiveIndex(2);
     else setActiveIndex(3);
+
+    // ✅ during jump: do NOT overwrite forced lastPair
+    if (jumpingRef.current) return;
 
     let nextPair;
     if (p < bounds.SCI_TO_STORE.end) nextPair = [0, 1];
@@ -284,11 +352,18 @@ export default function SecondPageSectionBySectionScroll() {
   const shouldRender = (i) => i === renderPair[0] || i === renderPair[1];
 
   return (
-    <section ref={sectionRef} className="relative isolate bg-black" style={{ height: `${TOTAL_VH}vh` }}>
+    <section
+      ref={sectionRef}
+      className="relative isolate bg-black"
+      style={{ height: `${TOTAL_VH}vh` }}
+    >
       <div style={viewportStyle} className="overflow-hidden bg-black">
         {shouldRender(0) && (
           <motion.div
-            style={{ opacity: sciOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }}
+            style={{
+              opacity: sciOpacity,
+              pointerEvents: activeIndex === 0 ? "auto" : "none",
+            }}
             className="absolute inset-0 z-10"
           >
             <ScientificInnovationExternal active={activeIndex === 0} />
@@ -297,7 +372,10 @@ export default function SecondPageSectionBySectionScroll() {
 
         {shouldRender(1) && (
           <motion.div
-            style={{ opacity: storeOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }}
+            style={{
+              opacity: storeOpacity,
+              pointerEvents: activeIndex === 1 ? "auto" : "none",
+            }}
             className="absolute inset-0 z-20"
           >
             <Suspense fallback={null}>
@@ -308,7 +386,10 @@ export default function SecondPageSectionBySectionScroll() {
 
         {shouldRender(2) && (
           <motion.div
-            style={{ opacity: lifeOpacity, pointerEvents: activeIndex === 2 ? "auto" : "none" }}
+            style={{
+              opacity: lifeOpacity,
+              pointerEvents: activeIndex === 2 ? "auto" : "none",
+            }}
             className="absolute inset-0 z-30"
           >
             <Suspense fallback={null}>
@@ -319,7 +400,11 @@ export default function SecondPageSectionBySectionScroll() {
 
         {shouldRender(3) && (
           <motion.div
-            style={{ opacity: footerOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none", zIndex: 60 }}
+            style={{
+              opacity: footerOpacity,
+              pointerEvents: activeIndex === 3 ? "auto" : "none",
+              zIndex: 60,
+            }}
             className="absolute inset-0"
           >
             <Suspense fallback={null}>

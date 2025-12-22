@@ -277,8 +277,9 @@ export default function GlobalCommunityImpactExternal({ progress = 0, active = t
 
           <Button
             extra="gap-2 mt-5 lg:mt-10 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
-            onClick={() => setIsOpen((prev) => !prev)}
-          >
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+            }}          >
             Join The Clarida Network
             <img src="icons/arrowIcon.svg" alt="Clarida Text" className="rotate-270" />
           </Button>
