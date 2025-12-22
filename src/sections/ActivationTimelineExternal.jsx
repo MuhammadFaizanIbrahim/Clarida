@@ -96,6 +96,10 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
   const ENTRY_REBASE_MAX = 0.35;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
+  // ✅ Hold at start/end so arc transition can finish before timeline starts moving
+  const START_HOLD_P = 0.10; // 10% hold at start
+  const END_HOLD_P = 0.10;   // 10% hold at end
+
   // ✅ smooth internal progress (prevents teleport on parent progress jumps)
   const smoothObjRef = useRef({ p: 0 });
   const quickToRef = useRef(null);
@@ -190,16 +194,37 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
     setStepIndex(0);
   };
 
-  const apply = (pRaw) => {
-    if (!active) return;
-
+  // ✅ NEW: shared held-progress computation (same logic as before)
+  const computeHeldP = (pRaw) => {
     const pIncoming = clamp01(pRaw);
 
     const startAt = activeStartRef.current || 0;
     const denom = 1 - startAt;
     const p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
 
-    setSmoothTarget(p);
+    const denomHold = 1 - START_HOLD_P - END_HOLD_P;
+    let pHeld = p;
+
+    if (denomHold > 0) {
+      if (pHeld <= START_HOLD_P) pHeld = 0;
+      else if (pHeld >= 1 - END_HOLD_P) pHeld = 1;
+      else pHeld = (pHeld - START_HOLD_P) / denomHold;
+    }
+
+    return pHeld;
+  };
+
+  // ✅ NEW: hard sync visuals even when NOT active (prevents "Dose One" flash)
+  const syncVisual = (pRaw) => {
+    const pHeld = computeHeldP(pRaw);
+    smoothObjRef.current.p = pHeld;
+    lastPRef.current = pHeld;
+    renderAt(pHeld);
+  };
+
+  const apply = (pRaw) => {
+    if (!active) return;
+    setSmoothTarget(computeHeldP(pRaw));
   };
 
   // ✅ on activate: choose rebase mode
@@ -207,7 +232,6 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
     if (!active) return;
 
     const current = clamp01(mv.get?.() ?? 0);
-
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
 
     if (enteringFromBelow) {
@@ -252,7 +276,18 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useMotionValueEvent(mv, "change", (v) => apply(v));
+  // ✅ INITIAL mount sync (first paint aligns to real progress)
+  useLayoutEffect(() => {
+    const current = clamp01(mv.get?.() ?? 0);
+    syncVisual(current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ IMPORTANT CHANGE: when inactive, keep visuals synced (no "Dose One" flash)
+  useMotionValueEvent(mv, "change", (v) => {
+    if (active) apply(v);
+    else syncVisual(v);
+  });
 
   const stepsCount = timelineSteps.length;
   const trackWidthVW = stepsCount * 100;

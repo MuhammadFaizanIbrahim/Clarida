@@ -180,6 +180,10 @@ export default function RegenerationTimelineExternal({
   const ENTRY_REBASE_MAX = 0.22;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
+  // ✅ Hold at start/end so arc transition can finish before timeline starts moving
+  const START_HOLD_P = 0.10; // 10% hold at start
+  const END_HOLD_P = 0.10; // 10% hold at end
+
   // ✅ smooth internal progress (prevents teleport on parent progress jumps)
   const smoothObjRef = useRef({ p: 0 });
   const quickToRef = useRef(null);
@@ -270,7 +274,6 @@ export default function RegenerationTimelineExternal({
 
     clearFadeInterval();
 
-    // immediate stop if turning fully off and it's already paused
     if (targetVolume === 0 && audio.paused) {
       audio.volume = 1;
       return;
@@ -287,13 +290,11 @@ export default function RegenerationTimelineExternal({
     let step = 0;
     const volumeDiff = targetVolume - startVolume;
 
-    // if fading IN, ensure playback starts
     if (targetVolume > 0 && audio.paused) {
       audio.loop = true;
       audio.play().catch(() => {});
     }
 
-    // if duration is 0, just jump
     if (durationMs <= 0) {
       audio.volume = targetVolume;
       if (targetVolume === 0) {
@@ -328,7 +329,6 @@ export default function RegenerationTimelineExternal({
     }, 50);
   };
 
-  // initial sync with global audio flag
   useEffect(() => {
     if (
       typeof window !== "undefined" &&
@@ -340,7 +340,6 @@ export default function RegenerationTimelineExternal({
     }
   }, []);
 
-  // listen to header/global audio toggle
   useEffect(() => {
     const handleAudioToggle = (e) => {
       const { isOn } = e.detail || {};
@@ -357,7 +356,6 @@ export default function RegenerationTimelineExternal({
       window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
   }, []);
 
-  // single source of truth for play/pause: ONLY when section is active
   useEffect(() => {
     activeRef.current = active;
     const audio = audioRef.current;
@@ -370,7 +368,6 @@ export default function RegenerationTimelineExternal({
     else fadeTo(audio, 0, 800);
   }, [active, isAudioOn]);
 
-  // cleanup on unmount
   useEffect(() => {
     return () => {
       clearFadeInterval();
@@ -391,24 +388,43 @@ export default function RegenerationTimelineExternal({
     setStepIndex(0);
   };
 
-  const apply = (pRaw) => {
-    if (!active) return;
-
+  const computeHeldP = (pRaw) => {
     const pIncoming = clamp01(pRaw);
 
     const startAt = activeStartRef.current || 0;
     const denom = 1 - startAt;
     const p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
 
-    setSmoothTarget(p);
+    const denomHold = 1 - START_HOLD_P - END_HOLD_P;
+    let pHeld = p;
+
+    if (denomHold > 0) {
+      if (pHeld <= START_HOLD_P) pHeld = 0;
+      else if (pHeld >= 1 - END_HOLD_P) pHeld = 1;
+      else pHeld = (pHeld - START_HOLD_P) / denomHold;
+    }
+
+    return pHeld;
   };
 
-  // ✅ on activate: decide whether to rebase or not
+  // ✅ NEW: hard sync visuals even when NOT active (prevents 7:00 AM flash)
+  const syncVisual = (pRaw) => {
+    const pHeld = computeHeldP(pRaw);
+    smoothObjRef.current.p = pHeld;
+    lastPRef.current = pHeld;
+    renderAt(pHeld);
+  };
+
+  const apply = (pRaw) => {
+    if (!active) return;
+    setSmoothTarget(computeHeldP(pRaw));
+  };
+
+  // ✅ on activate: decide whether to rebase or not (same logic)
   useEffect(() => {
     if (!active) return;
 
     const current = clamp01(mv.get?.() ?? 0);
-
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
 
     if (enteringFromBelow) {
@@ -441,7 +457,6 @@ export default function RegenerationTimelineExternal({
     window.addEventListener("resize", compute);
     window.addEventListener("orientationchange", compute);
 
-    // smooth driver (critical)
     quickToRef.current = gsap.quickTo(smoothObjRef.current, "p", {
       duration: 0.18,
       ease: "power2.out",
@@ -457,14 +472,24 @@ export default function RegenerationTimelineExternal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displaySteps.length]);
 
-  useMotionValueEvent(mv, "change", (v) => apply(v));
+  // ✅ INITIAL mount sync (so first paint aligns to real progress)
+  useLayoutEffect(() => {
+    const current = clamp01(mv.get?.() ?? 0);
+    syncVisual(current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ IMPORTANT CHANGE: when inactive, keep visuals synced (no flash), when active use smooth apply
+  useMotionValueEvent(mv, "change", (v) => {
+    if (active) apply(v);
+    else syncVisual(v);
+  });
 
   const stepsCount = displaySteps.length;
   const trackWidthVW = stepsCount * 100;
 
   const tickCount = baseStepsCount - 3;
   const tickSpacingVW = 100;
-
   const timeBarWidthVW = tickCount * tickSpacingVW;
 
   return (
@@ -489,7 +514,7 @@ export default function RegenerationTimelineExternal({
         ))}
       </div>
 
-      {/* 🔊 SECTION AUDIO (same behavior as previous version) */}
+      {/* 🔊 SECTION AUDIO */}
       <audio
         ref={audioRef}
         src="/audios/regenerationTimeline.mp3"
@@ -608,9 +633,7 @@ export default function RegenerationTimelineExternal({
                         {!isLastTwo && item.subtitle && (
                           <>
                             {" "}
-                            <span className="h2-text-bold">
-                              {item.subtitle}
-                            </span>
+                            <span className="h2-text-bold">{item.subtitle}</span>
                           </>
                         )}
                       </>
