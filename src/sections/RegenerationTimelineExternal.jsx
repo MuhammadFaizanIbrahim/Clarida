@@ -133,9 +133,9 @@ const SMOOTH_TIME = 0.16; // seconds (higher = smoother, floatier)
 const MAX_SPEED = 0.95; // progress per second (prevents skipping without "push")
 
 // ✅ NEW: smooth slowdown zone around each step center (no sticky / no push)
-const CENTER_SLOW_RADIUS_FRAC = 0.18; // portion of each segment affected (0.18–0.28 good)
-const CENTER_SLOW_STRENGTH = 0.8; // 0..1 (higher = more slowdown)
-const CENTER_SLOW_POWER = 2.6; // curve softness (2–3 smooth)
+const CENTER_SLOW_RADIUS_FRAC = 0.28; // portion of each segment affected (0.18–0.28 good)
+const CENTER_SLOW_STRENGTH = 0.9; // 0..1 (higher = more slowdown)
+const CENTER_SLOW_POWER = 2.8; // curve softness (2–3 smooth)
 
 const centerSlow = (p, stepsLen) => {
   const maxIndex = Math.max(stepsLen - 1, 1);
