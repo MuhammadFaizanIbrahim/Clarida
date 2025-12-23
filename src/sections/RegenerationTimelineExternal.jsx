@@ -105,6 +105,55 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const isMotionValue = (v) =>
   v && typeof v === "object" && typeof v.get === "function";
 
+const MAGNET_STRENGTH = 0.45; // softer pull (no sticky)
+const MAGNET_RADIUS_FRAC = 0.28; // smaller influence zone
+const MAGNET_POWER = 2.2; // gentler curve
+
+const magnetizeToCenters = (p, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * MAGNET_RADIUS_FRAC;
+
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
+
+  const d = p - center;
+  const ad = Math.abs(d);
+  if (ad >= radius) return p;
+
+  const t = 1 - ad / radius; // 1 at center, 0 at edge
+  const w = MAGNET_STRENGTH * Math.pow(t, MAGNET_POWER);
+
+  return clamp01(center + d * (1 - w));
+};
+
+// ✅ NEW: stable lenis-like smoothing (no stick/push)
+const SMOOTH_TIME = 0.16; // seconds (higher = smoother, floatier)
+const MAX_SPEED = 0.95; // progress per second (prevents skipping without "push")
+
+// ✅ NEW: smooth slowdown zone around each step center (no sticky / no push)
+const CENTER_SLOW_RADIUS_FRAC = 0.18; // portion of each segment affected (0.18–0.28 good)
+const CENTER_SLOW_STRENGTH = 0.8; // 0..1 (higher = more slowdown)
+const CENTER_SLOW_POWER = 2.6; // curve softness (2–3 smooth)
+
+const centerSlow = (p, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * CENTER_SLOW_RADIUS_FRAC;
+
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
+
+  const d = Math.abs(p - center);
+  if (d >= radius) return 0;
+
+  // 1 at center -> 0 at edge, smoothly
+  const t = 1 - d / radius;
+  return Math.pow(t, CENTER_SLOW_POWER);
+};
+
 export default function RegenerationTimelineExternal({
   progress = 0,
   active = true,
@@ -175,18 +224,21 @@ export default function RegenerationTimelineExternal({
     window.scrollBy({ top, behavior: "smooth" });
   };
 
-  // ✅ entry behavior: only rebase if entering from above (early progress)
+  // ✅ entry behavior
   const activeStartRef = useRef(0);
   const ENTRY_REBASE_MAX = 0.22;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
-  // ✅ Hold at start/end so arc transition can finish before timeline starts moving
-  const START_HOLD_P = 0.10; // 10% hold at start
-  const END_HOLD_P = 0.10; // 10% hold at end
+  // ✅ Hold at start/end
+  const START_HOLD_P = 0.10;
+  const END_HOLD_P = 0.10;
 
-  // ✅ smooth internal progress (prevents teleport on parent progress jumps)
+  // ✅ internal progress
   const smoothObjRef = useRef({ p: 0 });
-  const quickToRef = useRef(null);
+
+  // ✅ target + RAF driver (Lenis style)
+  const targetPRef = useRef(0);
+  const rafRef = useRef(null);
 
   const renderAt = (p) => {
     const track = trackRef.current;
@@ -242,19 +294,163 @@ export default function RegenerationTimelineExternal({
     });
   };
 
-  const setSmoothTarget = (pTarget) => {
-    const clamped = clamp01(pTarget);
-    lastPRef.current = clamped;
+  const computeHeldP = (pRaw) => {
+    const pIncoming = clamp01(pRaw);
 
-    if (quickToRef.current) {
-      quickToRef.current(clamped);
-    } else {
-      smoothObjRef.current.p = clamped;
-      renderAt(clamped);
+    const startAt = activeStartRef.current || 0;
+    const denom = 1 - startAt;
+    const p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
+
+    const denomHold = 1 - START_HOLD_P - END_HOLD_P;
+    let pHeld = p;
+
+    if (denomHold > 0) {
+      if (pHeld <= START_HOLD_P) pHeld = 0;
+      else if (pHeld >= 1 - END_HOLD_P) pHeld = 1;
+      else pHeld = (pHeld - START_HOLD_P) / denomHold;
     }
+
+    return magnetizeToCenters(pHeld, timelineSteps.length);
   };
 
-  // ----------------- ✅ AUDIO (ONLY ADDITION) -----------------
+  const lastTimeRef = useRef(0);
+
+  const startRaf = () => {
+    if (rafRef.current) return;
+
+    lastTimeRef.current = performance.now();
+
+    const tick = (now) => {
+      rafRef.current = requestAnimationFrame(tick);
+
+      // dt in seconds (clamped so tab switching doesn't jump)
+      const dt = Math.min(
+        Math.max((now - lastTimeRef.current) / 1000, 0),
+        0.05
+      );
+      lastTimeRef.current = now;
+
+      const current = smoothObjRef.current.p;
+      const target = targetPRef.current;
+
+      // ✅ slowdown amount based on proximity to center (0..1)
+      const slow = centerSlow(current, timelineSteps.length);
+
+      // ✅ slightly more “float” near center (gentle, not sticky)
+      const smoothTime = SMOOTH_TIME * (1 + 0.75 * slow);
+
+      // time-constant smoothing (frame-rate independent)
+      const alpha = 1 - Math.exp(-dt / smoothTime);
+
+      let next = current + (target - current) * alpha;
+
+      // ✅ speed limit that smoothly reduces near center (readable dwell)
+      const speedMul = 1 - CENTER_SLOW_STRENGTH * slow;
+      const maxDelta = MAX_SPEED * speedMul * dt;
+
+      const delta = next - current;
+      if (Math.abs(delta) > maxDelta) {
+        next = current + Math.sign(delta) * maxDelta;
+      }
+
+      next = clamp01(next);
+
+      smoothObjRef.current.p = next;
+      lastPRef.current = next;
+      renderAt(next);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  const stopRaf = () => {
+    if (!rafRef.current) return;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+  };
+
+  // ✅ hard sync (prevents flash)
+  const syncVisual = (pRaw) => {
+    const pFinal = computeHeldP(pRaw);
+    smoothObjRef.current.p = pFinal;
+    targetPRef.current = pFinal;
+    lastPRef.current = pFinal;
+    renderAt(pFinal);
+  };
+
+  const apply = (pRaw) => {
+    if (!active) return;
+    targetPRef.current = computeHeldP(pRaw);
+    startRaf();
+  };
+
+  // ✅ on activate: decide whether to rebase or not
+  useEffect(() => {
+    if (!active) {
+      stopRaf();
+      return;
+    }
+
+    const current = clamp01(mv.get?.() ?? 0);
+    const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
+
+    if (enteringFromBelow) {
+      activeStartRef.current = 0;
+    } else if (current <= ENTRY_REBASE_MAX) {
+      activeStartRef.current = current;
+      // resetToStart behavior without changing visuals structure
+      smoothObjRef.current.p = 0;
+      targetPRef.current = 0;
+      lastPRef.current = 0;
+      stepIndexRef.current = 0;
+      setStepIndex(0);
+      renderAt(0);
+    } else {
+      activeStartRef.current = 0;
+    }
+
+    apply(current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // ----------------- layout: compute totalScroll -----------------
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const compute = () => {
+      totalScrollRef.current = Math.max(
+        track.scrollWidth - window.innerWidth,
+        0
+      );
+      renderAt(smoothObjRef.current.p);
+    };
+
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("orientationchange", compute);
+
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("orientationchange", compute);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displaySteps.length]);
+
+  // ✅ INITIAL mount sync
+  useLayoutEffect(() => {
+    const current = clamp01(mv.get?.() ?? 0);
+    syncVisual(current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ keep visuals synced when inactive, lenis-smooth when active
+  useMotionValueEvent(mv, "change", (v) => {
+    if (active) apply(v);
+    else syncVisual(v);
+  });
+
+  // ----------------- ✅ AUDIO (UNCHANGED) -----------------
   const audioRef = useRef(null);
   const fadeIntervalRef = useRef(null);
 
@@ -380,111 +576,6 @@ export default function RegenerationTimelineExternal({
   }, []);
   // ----------------- ✅ END AUDIO -----------------
 
-  const resetToStart = () => {
-    smoothObjRef.current.p = 0;
-    setSmoothTarget(0);
-
-    stepIndexRef.current = 0;
-    setStepIndex(0);
-  };
-
-  const computeHeldP = (pRaw) => {
-    const pIncoming = clamp01(pRaw);
-
-    const startAt = activeStartRef.current || 0;
-    const denom = 1 - startAt;
-    const p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
-
-    const denomHold = 1 - START_HOLD_P - END_HOLD_P;
-    let pHeld = p;
-
-    if (denomHold > 0) {
-      if (pHeld <= START_HOLD_P) pHeld = 0;
-      else if (pHeld >= 1 - END_HOLD_P) pHeld = 1;
-      else pHeld = (pHeld - START_HOLD_P) / denomHold;
-    }
-
-    return pHeld;
-  };
-
-  // ✅ NEW: hard sync visuals even when NOT active (prevents 7:00 AM flash)
-  const syncVisual = (pRaw) => {
-    const pHeld = computeHeldP(pRaw);
-    smoothObjRef.current.p = pHeld;
-    lastPRef.current = pHeld;
-    renderAt(pHeld);
-  };
-
-  const apply = (pRaw) => {
-    if (!active) return;
-    setSmoothTarget(computeHeldP(pRaw));
-  };
-
-  // ✅ on activate: decide whether to rebase or not (same logic)
-  useEffect(() => {
-    if (!active) return;
-
-    const current = clamp01(mv.get?.() ?? 0);
-    const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
-
-    if (enteringFromBelow) {
-      activeStartRef.current = 0;
-    } else if (current <= ENTRY_REBASE_MAX) {
-      activeStartRef.current = current;
-      resetToStart();
-    } else {
-      activeStartRef.current = 0;
-    }
-
-    apply(current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
-
-  // ----------------- layout: compute totalScroll + quickTo -----------------
-  useLayoutEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-
-    const compute = () => {
-      totalScrollRef.current = Math.max(
-        track.scrollWidth - window.innerWidth,
-        0
-      );
-      renderAt(smoothObjRef.current.p);
-    };
-
-    compute();
-    window.addEventListener("resize", compute);
-    window.addEventListener("orientationchange", compute);
-
-    quickToRef.current = gsap.quickTo(smoothObjRef.current, "p", {
-      duration: 0.18,
-      ease: "power2.out",
-      overwrite: true,
-      onUpdate: () => renderAt(smoothObjRef.current.p),
-    });
-
-    return () => {
-      window.removeEventListener("resize", compute);
-      window.removeEventListener("orientationchange", compute);
-      quickToRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displaySteps.length]);
-
-  // ✅ INITIAL mount sync (so first paint aligns to real progress)
-  useLayoutEffect(() => {
-    const current = clamp01(mv.get?.() ?? 0);
-    syncVisual(current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ✅ IMPORTANT CHANGE: when inactive, keep visuals synced (no flash), when active use smooth apply
-  useMotionValueEvent(mv, "change", (v) => {
-    if (active) apply(v);
-    else syncVisual(v);
-  });
-
   const stepsCount = displaySteps.length;
   const trackWidthVW = stepsCount * 100;
 
@@ -569,9 +660,13 @@ export default function RegenerationTimelineExternal({
               const isClaridaBase = item.baseIndex === baseStepsCount - 3;
 
               const isMobileBiology =
-                isMobile && isClaridaBase && item.mobileSplitPart === "biology";
+                isMobile &&
+                isClaridaBase &&
+                item.mobileSplitPart === "biology";
               const isMobileListens =
-                isMobile && isClaridaBase && item.mobileSplitPart === "listens";
+                isMobile &&
+                isClaridaBase &&
+                item.mobileSplitPart === "listens";
 
               return (
                 <div
@@ -601,10 +696,7 @@ export default function RegenerationTimelineExternal({
                           .map((word, i) => {
                             if (word.toLowerCase().includes("listens")) {
                               return (
-                                <span
-                                  key={i}
-                                  className="font-bold h2-text-bold"
-                                >
+                                <span key={i} className="font-bold h2-text-bold">
                                   {word}{" "}
                                 </span>
                               );
