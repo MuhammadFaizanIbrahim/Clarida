@@ -105,9 +105,9 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const isMotionValue = (v) =>
   v && typeof v === "object" && typeof v.get === "function";
 
-const MAGNET_STRENGTH = 0.45; // softer pull (no sticky)
-const MAGNET_RADIUS_FRAC = 0.28; // smaller influence zone
-const MAGNET_POWER = 2.2; // gentler curve
+const MAGNET_STRENGTH = 0.96; // softer pull (no sticky)
+const MAGNET_RADIUS_FRAC = 0.95; // smaller influence zone
+const MAGNET_POWER = 9.2; // gentler curve
 
 const magnetizeToCenters = (p, stepsLen) => {
   const maxIndex = Math.max(stepsLen - 1, 1);

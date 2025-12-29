@@ -4,12 +4,12 @@ import { useMotionValueEvent } from "framer-motion";
 import Button from "../components/Button.jsx";
 
 // adjust if you change frame count
-const TOTAL_FRAMES = 31;
+const TOTAL_FRAMES = 61;
 
 // build frame paths
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/ClaridaDifferenceNew/frame_${index}.webp`;
+  return `/frames/ClaridaDifference/frame_${index}.webp`;
 });
 
 const FIRST_FRAME_SRC = framePaths[0];

@@ -7,17 +7,17 @@ import Button from "../components/Button.jsx";
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
-const TOTAL_FRAMES = 194;
+const TOTAL_FRAMES = 360;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/InteractiveRegeneration2/frame_${index}.webp`;
+  return `/frames/InteractiveRegeneration/frame_${index}.webp`;
 });
 
 const FIRST_FRAME_SRC = framePaths[0];
 
 // key frames where each step should peak
-const STEP_KEY_FRAMES = [40, 80, 110, 145, 190];
+const STEP_KEY_FRAMES = [80, 160, 230, 280, 330];
 const FIRST_STORY_FRAME = STEP_KEY_FRAMES[0];
 
 const storySteps = [

@@ -3,11 +3,11 @@ import { gsap } from "gsap";
 import { useMotionValue, useMotionValueEvent } from "framer-motion";
 import Button from "../components/Button.jsx";
 
-const TOTAL_FRAMES = 75;
+const TOTAL_FRAMES = 150;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/GlobalCommunityImpactNew/frame_${index}.webp`;
+  return `/frames/GlobalCommunityImpact/frame_${index}.webp`;
 });
 
 const FIRST_FRAME_SRC = framePaths[0];
