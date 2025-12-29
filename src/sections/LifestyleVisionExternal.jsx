@@ -88,51 +88,135 @@ export default function LifestyleVisionExternal({
     };
   }, []);
 
+  // ✅ safe-draw + priority loader (prevents "first frames then jump" on fast re-entry)
+  const lastRequestedIndexRef = useRef(-1);
+  const lastPaintedIndexRef = useRef(-1);
+
+  const PRIORITY_RADIUS = 18; // for 61 frames
+  const PRIORITY_CONCURRENCY = 6;
+
+  const priorityTokenRef = useRef(0);
+  const priorityQueueRef = useRef([]);
+  const priorityInFlightRef = useRef(0);
+  const priorityLoadingSetRef = useRef(new Set());
+
+  const requestPriorityAround = (centerIndex) => {
+    const frames = preloadedFramesRef.current;
+    if (!frames || !frames.length) return;
+
+    const token = ++priorityTokenRef.current;
+    priorityQueueRef.current = [];
+
+    const R = PRIORITY_RADIUS;
+
+    const order = [];
+    order.push(centerIndex);
+    for (let d = 1; d <= R; d++) {
+      const a = centerIndex + d;
+      const b = centerIndex - d;
+      if (a >= 0 && a < TOTAL_FRAMES) order.push(a);
+      if (b >= 0 && b < TOTAL_FRAMES) order.push(b);
+    }
+
+    for (const idx of order) {
+      if (frames[idx]) continue;
+      if (priorityLoadingSetRef.current.has(idx)) continue;
+      priorityQueueRef.current.push(idx);
+    }
+
+    const pump = () => {
+      if (priorityTokenRef.current !== token) return;
+
+      while (
+        priorityInFlightRef.current < PRIORITY_CONCURRENCY &&
+        priorityQueueRef.current.length
+      ) {
+        const idx = priorityQueueRef.current.shift();
+        if (idx == null) continue;
+
+        if (frames[idx]) continue;
+        if (priorityLoadingSetRef.current.has(idx)) continue;
+
+        priorityLoadingSetRef.current.add(idx);
+        priorityInFlightRef.current += 1;
+
+        const img = new Image();
+        try {
+          img.fetchPriority = "high";
+        } catch (_) {}
+        img.decoding = "async";
+        img.src = framePaths[idx];
+
+        img.onload = () => {
+          frames[idx] = img;
+          priorityLoadingSetRef.current.delete(idx);
+          priorityInFlightRef.current -= 1;
+          pump();
+        };
+
+        img.onerror = () => {
+          frames[idx] = frames[idx] || null;
+          priorityLoadingSetRef.current.delete(idx);
+          priorityInFlightRef.current -= 1;
+          pump();
+        };
+      }
+    };
+
+    pump();
+  };
+
   const drawFrame = (desiredIndex) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const ctx2d = canvas.getContext("2d");
-    if (!ctx2d) return;
+    if (!ctx2d) return null;
 
     const frames = preloadedFramesRef.current;
     const w = logicalWidthRef.current || window.innerWidth;
     const h = logicalHeightRef.current || window.innerHeight;
-    if (!w || !h) return;
-
-    // ✅ direction-aware fallback (prevents flicker/jumping between nearest frames)
-    let idxToDraw = desiredIndex;
-
-    const last = lastDrawnIndexRef.current;
-    const dir = last < 0 ? 1 : desiredIndex - last;
+    if (!w || !h) return null;
 
     const isReady = (img) => img && img.complete && img.naturalWidth > 0;
 
-    if (!isReady(frames[idxToDraw])) {
-      if (dir >= 0) {
-        // going forward → use nearest loaded <= desired
-        for (let i = idxToDraw; i >= 0; i--) {
-          if (isReady(frames[i])) {
-            idxToDraw = i;
-            break;
-          }
+    // ✅ nearby-only fallback (never jump back to early "starting" frames)
+    const SEARCH_RADIUS = 10;
+
+    let pick = -1;
+    if (isReady(frames[desiredIndex])) {
+      pick = desiredIndex;
+    } else {
+      const prevReq = lastRequestedIndexRef.current;
+      const goingForward = desiredIndex >= prevReq;
+
+      for (let d = 1; d <= SEARCH_RADIUS; d++) {
+        const a = desiredIndex - d;
+        const b = desiredIndex + d;
+
+        const first = goingForward ? b : a;
+        const second = goingForward ? a : b;
+
+        if (first >= 0 && first < TOTAL_FRAMES && isReady(frames[first])) {
+          pick = first;
+          break;
         }
-      } else {
-        // going backward → use nearest loaded >= desired
-        for (let i = idxToDraw; i < TOTAL_FRAMES; i++) {
-          if (isReady(frames[i])) {
-            idxToDraw = i;
-            break;
-          }
+        if (second >= 0 && second < TOTAL_FRAMES && isReady(frames[second])) {
+          pick = second;
+          break;
         }
       }
     }
 
-    const img = frames[idxToDraw];
-    if (!isReady(img)) return;
+    // nothing near desired loaded yet -> keep current canvas (no flash)
+    if (pick < 0) return null;
 
     // avoid redundant redraws
-    if (idxToDraw === lastDrawnIndexRef.current) return;
-    lastDrawnIndexRef.current = idxToDraw;
+    if (pick === lastDrawnIndexRef.current) return pick;
+    lastDrawnIndexRef.current = pick;
+    lastPaintedIndexRef.current = pick;
+
+    const img = frames[pick];
+    if (!isReady(img)) return null;
 
     ctx2d.clearRect(0, 0, w, h);
 
@@ -155,93 +239,8 @@ export default function LifestyleVisionExternal({
     }
 
     ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+    return pick;
   };
-
-  // draw first frame ASAP to avoid blank flash (same as original)
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx2d = canvas.getContext("2d");
-    if (!ctx2d) return;
-
-    const img = new Image();
-    img.src = FIRST_FRAME_SRC;
-
-    img.onload = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-
-      logicalWidthRef.current = width;
-      logicalHeightRef.current = height;
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      // cover draw
-      const imgW = img.naturalWidth;
-      const imgH = img.naturalHeight;
-      const imgAspect = imgW / imgH;
-      const canvasAspect = width / height;
-
-      let drawW, drawH, offsetX, offsetY;
-      if (imgAspect > canvasAspect) {
-        drawH = height;
-        drawW = drawH * imgAspect;
-        offsetX = (width - drawW) / 2;
-        offsetY = 0;
-      } else {
-        drawW = width;
-        drawH = drawW / imgAspect;
-        offsetX = 0;
-        offsetY = (height - drawH) / 2;
-      }
-
-      ctx2d.clearRect(0, 0, width, height);
-      ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
-
-      lastDrawnIndexRef.current = 0;
-    };
-  }, []);
-
-  // resize canvas to viewport
-  useLayoutEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx2d = canvas.getContext("2d");
-    if (!ctx2d) return;
-
-    const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-
-      logicalWidthRef.current = width;
-      logicalHeightRef.current = height;
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      // redraw last drawn frame
-      const idx =
-        lastDrawnIndexRef.current >= 0 ? lastDrawnIndexRef.current : 0;
-      drawFrame(idx);
-    };
-
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-    window.addEventListener("orientationchange", resizeCanvas);
-
-    return () => {
-      window.removeEventListener("resize", resizeCanvas);
-      window.removeEventListener("orientationchange", resizeCanvas);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const setTextState = (p) => {
     const text = textRef.current;
@@ -275,6 +274,110 @@ export default function LifestyleVisionExternal({
     return denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
   };
 
+  // ✅ draw CURRENT frame ASAP to avoid "first frame flash" on remount/re-entry
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    logicalWidthRef.current = width;
+    logicalHeightRef.current = height;
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const current = clamp01(mv.get?.() ?? 0);
+    const p = rebaseProgress(current);
+    smoothPRef.current = p;
+    targetPRef.current = p;
+
+    const idx = Math.min(TOTAL_FRAMES - 1, Math.floor(p * (TOTAL_FRAMES - 1)));
+    lastRequestedIndexRef.current = idx;
+    requestPriorityAround(idx);
+
+    // try draw from preloaded if possible; otherwise paint the correct frame src directly
+    const painted = drawFrame(idx);
+    if (painted === null) {
+      const img = new Image();
+      img.src = framePaths[idx] || FIRST_FRAME_SRC;
+      img.onload = () => {
+        const imgW = img.naturalWidth;
+        const imgH = img.naturalHeight;
+        const imgAspect = imgW / imgH;
+        const canvasAspect = width / height;
+
+        let drawW, drawH, offsetX, offsetY;
+        if (imgAspect > canvasAspect) {
+          drawH = height;
+          drawW = drawH * imgAspect;
+          offsetX = (width - drawW) / 2;
+          offsetY = 0;
+        } else {
+          drawW = width;
+          drawH = drawW / imgAspect;
+          offsetX = 0;
+          offsetY = (height - drawH) / 2;
+        }
+
+        ctx2d.clearRect(0, 0, width, height);
+        ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+
+        lastDrawnIndexRef.current = idx;
+        lastPaintedIndexRef.current = idx;
+      };
+    }
+
+    // keep text starting state as you had (blurred at start)
+    setTextState(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // resize canvas to viewport
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) return;
+
+    const resizeCanvas = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      logicalWidthRef.current = width;
+      logicalHeightRef.current = height;
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // ✅ redraw current (not forced to 0)
+      const p = smoothPRef.current;
+      const idx = Math.min(TOTAL_FRAMES - 1, Math.floor(p * (TOTAL_FRAMES - 1)));
+      lastRequestedIndexRef.current = idx;
+      requestPriorityAround(idx);
+      drawFrame(idx);
+    };
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    window.addEventListener("orientationchange", resizeCanvas);
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      window.removeEventListener("orientationchange", resizeCanvas);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // on activate: decide whether to rebase/reset or not
   useEffect(() => {
     if (!active) return;
@@ -290,6 +393,8 @@ export default function LifestyleVisionExternal({
       setTextState(0);
       targetPRef.current = 0;
       smoothPRef.current = 0;
+      lastRequestedIndexRef.current = 0;
+      requestPriorityAround(0);
       drawFrame(0);
       lastDrawnIndexRef.current = 0;
     } else {
@@ -299,9 +404,16 @@ export default function LifestyleVisionExternal({
     const p = rebaseProgress(current);
     targetPRef.current = p;
 
-    // ✅ Always start blurred on entry (prevents "full → blur → full")
-    smoothPRef.current = 0;
-    setTextState(0);
+    // ✅ KEY FIX: when re-entering from below (or not rebasing), sync immediately to current progress
+    if (enteringFromBelow || current > ENTRY_REBASE_MAX) {
+      smoothPRef.current = p;
+      const idx = Math.min(TOTAL_FRAMES - 1, Math.floor(p * (TOTAL_FRAMES - 1)));
+      lastRequestedIndexRef.current = idx;
+      requestPriorityAround(idx);
+      drawFrame(idx);
+      // keep your “start blurred” behavior without forcing frame 0
+      setTextState(0);
+    }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
@@ -311,6 +423,11 @@ export default function LifestyleVisionExternal({
     if (!active) return;
     const p = rebaseProgress(clamp01(v));
     targetPRef.current = p;
+
+    // keep priority loader focused (helps fast scroll)
+    const idx = Math.min(TOTAL_FRAMES - 1, Math.floor(p * (TOTAL_FRAMES - 1)));
+    lastRequestedIndexRef.current = idx;
+    requestPriorityAround(idx);
   });
 
   // ✅ RAF loop: smooth progress → stable frames (fixes “flutter”)
@@ -321,6 +438,8 @@ export default function LifestyleVisionExternal({
       // reduced motion: keep first frame + readable text
       targetPRef.current = 0;
       smoothPRef.current = 0;
+      lastRequestedIndexRef.current = 0;
+      requestPriorityAround(0);
       drawFrame(0);
       setTextState(0);
       return;
@@ -342,6 +461,10 @@ export default function LifestyleVisionExternal({
         TOTAL_FRAMES - 1,
         Math.floor(smooth * (TOTAL_FRAMES - 1))
       );
+
+      lastRequestedIndexRef.current = idx;
+      requestPriorityAround(idx);
+
       drawFrame(idx);
       setTextState(smooth);
 
@@ -360,6 +483,11 @@ export default function LifestyleVisionExternal({
     <section
       ref={sectionRef}
       className="relative h-screen flex items-end justify-between text-white overflow-hidden"
+      style={{
+        backgroundImage: `url(${FIRST_FRAME_SRC})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
     >
       {/* FRAME BACKGROUND via CANVAS */}
       <canvas className="absolute h-full w-full" ref={canvasRef} />
@@ -378,7 +506,6 @@ export default function LifestyleVisionExternal({
           opacity: prefersReducedMotion ? 1 : 0.1,
           filter: prefersReducedMotion ? "blur(0px)" : "blur(14px)",
         }}
-        
       >
         {/* Left Side */}
         <div className="w-[362px] md:w-full flex flex-col gap-3 md:gap-6 items-center md:items-start">
@@ -391,10 +518,12 @@ export default function LifestyleVisionExternal({
           </h1>
 
           {!isMobile && (
-            <Button extra="gap-2 mt-5 md:mt-2 lg:mt-0 2xl:mt-2 lg:gap-4 lg:py-3 lg:px-5 flex"
-            onClick={() => {
-              window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
-            }}>
+            <Button
+              extra="gap-2 mt-5 md:mt-2 lg:mt-0 2xl:mt-2 lg:gap-4 lg:py-3 lg:px-5 flex"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+              }}
+            >
               Start Your Clarida Story Today
               <img
                 src="icons/arrowIcon.svg"

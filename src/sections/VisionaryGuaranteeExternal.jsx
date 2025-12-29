@@ -156,36 +156,129 @@ export default function VisionaryGuaranteeExternal({ progress = 0, active = true
     };
   }, []);
 
-  const drawFrame = (frameIndex) => {
+  // ✅ Safe draw support refs (prevents flashing to early frames on fast scroll)
+  const lastRequestedIndexRef = useRef(-1);
+  const lastPaintedIndexRef = useRef(-1);
+
+  // ✅ Micro priority loader (loads near current index fast)
+  const PRIORITY_RADIUS = 26; // good for 100 frames
+  const PRIORITY_CONCURRENCY = 6;
+
+  const priorityTokenRef = useRef(0);
+  const priorityQueueRef = useRef([]);
+  const priorityInFlightRef = useRef(0);
+  const priorityLoadingSetRef = useRef(new Set());
+
+  const requestPriorityAround = (centerIndex) => {
+    const frames = preloadedFramesRef.current;
+    if (!frames || !frames.length) return;
+
+    const token = ++priorityTokenRef.current;
+    priorityQueueRef.current = [];
+
+    const R = PRIORITY_RADIUS;
+
+    const order = [];
+    order.push(centerIndex);
+    for (let d = 1; d <= R; d++) {
+      const a = centerIndex + d;
+      const b = centerIndex - d;
+      if (a >= 0 && a < TOTAL_FRAMES) order.push(a);
+      if (b >= 0 && b < TOTAL_FRAMES) order.push(b);
+    }
+
+    for (const idx of order) {
+      if (frames[idx]) continue;
+      if (priorityLoadingSetRef.current.has(idx)) continue;
+      priorityQueueRef.current.push(idx);
+    }
+
+    const pump = () => {
+      if (priorityTokenRef.current !== token) return;
+
+      while (
+        priorityInFlightRef.current < PRIORITY_CONCURRENCY &&
+        priorityQueueRef.current.length
+      ) {
+        const idx = priorityQueueRef.current.shift();
+        if (idx == null) continue;
+
+        if (frames[idx]) continue;
+        if (priorityLoadingSetRef.current.has(idx)) continue;
+
+        priorityLoadingSetRef.current.add(idx);
+        priorityInFlightRef.current += 1;
+
+        const img = new Image();
+        try {
+          img.fetchPriority = "high";
+        } catch (_) {}
+        img.decoding = "async";
+        img.src = framePaths[idx];
+
+        img.onload = () => {
+          frames[idx] = img;
+          priorityLoadingSetRef.current.delete(idx);
+          priorityInFlightRef.current -= 1;
+          pump();
+        };
+
+        img.onerror = () => {
+          frames[idx] = frames[idx] || null;
+          priorityLoadingSetRef.current.delete(idx);
+          priorityInFlightRef.current -= 1;
+          pump();
+        };
+      }
+    };
+
+    pump();
+  };
+
+  // ✅ safer draw that never falls back to far "starting frames"
+  const drawFrame = (desiredIndex) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const ctx2d = canvas.getContext("2d");
-    if (!ctx2d) return;
+    if (!ctx2d) return null;
 
     const frames = preloadedFramesRef.current;
     const w = logicalWidthRef.current || canvas.clientWidth;
     const h = logicalHeightRef.current || canvas.clientHeight;
-    if (!w || !h || !frames?.length) return;
+    if (!w || !h || !frames?.length) return null;
 
-    let img = frames[frameIndex];
+    const SEARCH_RADIUS = 12; // keep small to avoid jumping back to very early frames
 
-    if (!img) {
-      for (let i = frameIndex - 1; i >= 0; i--) {
-        if (frames[i]) {
-          img = frames[i];
+    let pick = -1;
+    if (frames[desiredIndex]) {
+      pick = desiredIndex;
+    } else {
+      const prevReq = lastRequestedIndexRef.current;
+      const goingForward = desiredIndex >= prevReq;
+
+      for (let d = 1; d <= SEARCH_RADIUS; d++) {
+        const a = desiredIndex - d;
+        const b = desiredIndex + d;
+
+        const first = goingForward ? b : a;
+        const second = goingForward ? a : b;
+
+        if (first >= 0 && first < TOTAL_FRAMES && frames[first]) {
+          pick = first;
+          break;
+        }
+        if (second >= 0 && second < TOTAL_FRAMES && frames[second]) {
+          pick = second;
           break;
         }
       }
-      if (!img) {
-        for (let i = frameIndex + 1; i < frames.length; i++) {
-          if (frames[i]) {
-            img = frames[i];
-            break;
-          }
-        }
-      }
     }
-    if (!img) return;
+
+    // nothing near desired is loaded yet -> keep current canvas
+    if (pick < 0) return null;
+
+    const img = frames[pick];
+    if (!img) return null;
 
     ctx2d.clearRect(0, 0, w, h);
 
@@ -208,17 +301,27 @@ export default function VisionaryGuaranteeExternal({ progress = 0, active = true
     }
 
     ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+
+    lastPaintedIndexRef.current = pick;
+    return pick;
   };
 
-  // draw first frame ASAP (avoid blank)
-  useEffect(() => {
+   // ✅ draw CURRENT frame ASAP (prevents first-frame flash on re-mount)
+   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx2d = canvas.getContext("2d");
     if (!ctx2d) return;
 
+    // use current progress instead of forcing FIRST_FRAME
+    const rawNow = clamp01(mv.get?.() ?? 0);
+    const mappedNow = mapWithEntryDelay(rawNow);
+
+    const lastFrameIndex = TOTAL_FRAMES - 1;
+    const desiredIndex = Math.min(lastFrameIndex, Math.floor(mappedNow * lastFrameIndex));
+
     const img = new Image();
-    img.src = FIRST_FRAME_SRC;
+    img.src = framePaths[desiredIndex];
 
     img.onload = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -232,7 +335,7 @@ export default function VisionaryGuaranteeExternal({ progress = 0, active = true
       canvas.height = height * dpr;
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // cover
+      // cover math (same as your original)
       const imgW = img.naturalWidth;
       const imgH = img.naturalHeight;
       const imgAspect = imgW / imgH;
@@ -253,8 +356,23 @@ export default function VisionaryGuaranteeExternal({ progress = 0, active = true
 
       ctx2d.clearRect(0, 0, width, height);
       ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+
+      // keep refs consistent
+      lastFrameIndexRef.current = desiredIndex;
+      lastRequestedIndexRef.current = desiredIndex;
+      lastPaintedIndexRef.current = desiredIndex;
+
+      // also sync section poster to avoid any flash
+      const sec = sectionRef.current;
+      if (sec) {
+        sec.style.backgroundImage = `url(${framePaths[desiredIndex]})`;
+        sec.style.backgroundSize = "cover";
+        sec.style.backgroundPosition = "center";
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   // resize canvas to viewport (parent is pinned)
   useLayoutEffect(() => {
@@ -280,8 +398,9 @@ export default function VisionaryGuaranteeExternal({ progress = 0, active = true
       setViewportWidth(width);
       viewportWidthRef.current = width;
 
-      const idx = lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
-      drawFrame(idx);
+      const currentP = clamp01(mv.get?.() ?? 0);
+      // ✅ sync to current progress instead of forcing frame 0
+      apply(currentP, true);
 
       if (timeBar) gsap.set(timeBar, { x: width, opacity: 0 });
     };
@@ -296,18 +415,36 @@ export default function VisionaryGuaranteeExternal({ progress = 0, active = true
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const apply = (pRaw) => {
+  const apply = (pRaw, forceDraw = false) => {
     if (!active) return;
 
-    // ✅ ONLY NEW CHANGE: use delayed progress
+    // ✅ delayed progress mapping kept exactly as you have it
     const p = mapWithEntryDelay(pRaw);
 
     const lastFrameIndex = TOTAL_FRAMES - 1;
-
     const frameIndex = Math.min(lastFrameIndex, Math.floor(p * lastFrameIndex));
-    if (frameIndex !== lastFrameIndexRef.current) {
-      lastFrameIndexRef.current = frameIndex;
-      drawFrame(frameIndex);
+
+    // ✅ priority load around current target (fast scroll fix)
+    requestPriorityAround(frameIndex);
+
+    // ✅ keep section poster synced too (prevents any brief first-frame flash)
+    const sec = sectionRef.current;
+    if (sec) {
+      sec.style.backgroundImage = `url(${framePaths[frameIndex]})`;
+      sec.style.backgroundSize = "cover";
+      sec.style.backgroundPosition = "center";
+    }
+
+    lastRequestedIndexRef.current = frameIndex;
+
+    if (forceDraw || frameIndex !== lastFrameIndexRef.current) {
+      const painted = drawFrame(frameIndex);
+
+      // only update "last frame" when we actually paint something
+      if (painted !== null) {
+        lastFrameIndexRef.current = painted;
+        if (sec) sec.style.backgroundImage = `url(${framePaths[painted]})`;
+      }
     }
 
     const timeBar = timeBarRef.current;
@@ -383,6 +520,21 @@ export default function VisionaryGuaranteeExternal({ progress = 0, active = true
       gsap.set(tickEl, { opacity: 1, scale: i === activeIndex ? 1.1 : 1, willChange: "transform" });
     });
   };
+
+  // ✅ hard sync on (re)enter so it never flashes early frames before mv updates
+  useLayoutEffect(() => {
+    if (!active) return;
+    const current = clamp01(mv.get?.() ?? 0);
+    apply(current, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // ✅ initial mount sync
+  useLayoutEffect(() => {
+    const current = clamp01(mv.get?.() ?? 0);
+    apply(current, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useMotionValueEvent(mv, "change", (v) => apply(v));
 
