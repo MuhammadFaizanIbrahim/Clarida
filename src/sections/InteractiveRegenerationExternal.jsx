@@ -162,7 +162,7 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     };
   }, []);
 
-  // preload frames (base preload; priority loader will aggressively fill around current)
+  // preload frames (base preload only)
   useEffect(() => {
     let cancelled = false;
     preloadedFramesRef.current = new Array(TOTAL_FRAMES).fill(null);
@@ -187,92 +187,7 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
   const lastPaintedIndexRef = useRef(-1);
   const lastRequestedIndexRef = useRef(-1);
 
-  // ✅ Micro priority loader (prevents "early frames" flashing on fast scroll)
-  const PRIORITY_RADIUS = 60; // frames around target to prioritize
-  const PRIORITY_CONCURRENCY = 6; // max parallel high-priority loads
-
-  const priorityTokenRef = useRef(0);
-  const priorityQueueRef = useRef([]);
-  const priorityInFlightRef = useRef(0);
-  const priorityLoadingSetRef = useRef(new Set());
-
-  const requestPriorityAround = (centerIndex) => {
-    const frames = preloadedFramesRef.current;
-    if (!frames || !frames.length) return;
-
-    // new request => invalidate older queue
-    const token = ++priorityTokenRef.current;
-
-    priorityQueueRef.current = [];
-    const R = PRIORITY_RADIUS;
-
-    // build near-to-far list (center, center+1, center-1, ...)
-    const order = [];
-    order.push(centerIndex);
-    for (let d = 1; d <= R; d++) {
-      const a = centerIndex + d;
-      const b = centerIndex - d;
-      if (a >= 0 && a < TOTAL_FRAMES) order.push(a);
-      if (b >= 0 && b < TOTAL_FRAMES) order.push(b);
-    }
-
-    // enqueue only those not already loaded/loading
-    for (const idx of order) {
-      if (frames[idx]) continue;
-      if (priorityLoadingSetRef.current.has(idx)) continue;
-      priorityQueueRef.current.push(idx);
-    }
-
-    const pump = () => {
-      if (priorityTokenRef.current !== token) return;
-
-      while (
-        priorityInFlightRef.current < PRIORITY_CONCURRENCY &&
-        priorityQueueRef.current.length
-      ) {
-        const idx = priorityQueueRef.current.shift();
-        if (idx == null) continue;
-
-        if (frames[idx]) continue;
-        if (priorityLoadingSetRef.current.has(idx)) continue;
-
-        priorityLoadingSetRef.current.add(idx);
-        priorityInFlightRef.current += 1;
-
-        const img = new Image();
-
-        // Fetch priority (supported in Chromium). Safe if ignored.
-        try {
-          img.fetchPriority = "high";
-        } catch (_) {}
-
-        img.decoding = "async";
-        img.src = framePaths[idx];
-
-        img.onload = () => {
-          frames[idx] = img;
-
-          priorityLoadingSetRef.current.delete(idx);
-          priorityInFlightRef.current -= 1;
-
-          pump();
-        };
-
-        img.onerror = () => {
-          frames[idx] = frames[idx] || null;
-
-          priorityLoadingSetRef.current.delete(idx);
-          priorityInFlightRef.current -= 1;
-
-          pump();
-        };
-      }
-    };
-
-    pump();
-  };
-
-  // ✅ NEW: smarter draw that never falls back to far "starting frames"
+  // ✅ draw that never falls back to far "starting frames"
   const drawFrame = (desiredIndex) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -284,10 +199,6 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     const h = logicalHeightRef.current || canvas.clientHeight;
     if (!w || !h || !frames?.length) return null;
 
-    // pick frame to paint:
-    // - prefer desiredIndex
-    // - if missing, search nearby within a limited radius
-    // - if still missing, keep the previously drawn frame (do nothing)
     const SEARCH_RADIUS = 28;
 
     let pick = -1;
@@ -348,15 +259,12 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     return pick;
   };
 
-  // ✅ FIX: single renderer that can be called immediately on (re)enter
+  // ✅ single renderer (no priority loader)
   const renderFromProgress = (pRaw, forceDraw = false) => {
     const p = clamp01(pRaw);
 
     const lastIndex = TOTAL_FRAMES - 1;
     const frameIndex = Math.min(lastIndex, Math.floor(p * lastIndex));
-
-    // ✅ key: aggressively load frames around the current target
-    requestPriorityAround(frameIndex);
 
     // keep poster synced (prevents any background flash)
     const sec = sectionRef.current;
@@ -469,7 +377,7 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       canvas.height = height * dpr;
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // ✅ FIX: draw correct frame for current progress (not frame 0)
+      // ✅ draw correct frame for current progress (not frame 0)
       const current = clamp01(progress?.get?.() ?? 0);
       renderFromProgress(current, true);
 
@@ -489,7 +397,7 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ FIX: on (re)entering the section, hard-sync immediately
+  // ✅ on (re)entering the section, hard-sync immediately
   useLayoutEffect(() => {
     if (!active) return;
     const current = clamp01(progress?.get?.() ?? 0);

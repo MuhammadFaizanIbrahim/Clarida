@@ -257,7 +257,11 @@ export default function SecondPageSectionBySectionScroll() {
     ? 1
     : useTransform(
         scrollYProgress,
-        [bounds.LIFE_TO_FOOTER.start, bounds.LIFE_TO_FOOTER.end, bounds.FOOTER_HOLD.end],
+        [
+          bounds.LIFE_TO_FOOTER.start,
+          bounds.LIFE_TO_FOOTER.end,
+          bounds.FOOTER_HOLD.end,
+        ],
         [0, 1, 1],
         { clamp: true }
       );
@@ -265,6 +269,21 @@ export default function SecondPageSectionBySectionScroll() {
   // ✅ Keep exactly 2 mounted based on progress region (no direction needed)
   const [renderPair, setRenderPair] = useState([0, 1]);
   const renderPairRef = useRef([0, 1]);
+
+  // ✅ NEW: mounted set (once mounted, never unmount)
+  const mountedSetRef = useRef(new Set([0, 1]));
+  const [mountedVersion, setMountedVersion] = useState(0);
+
+  const ensureMounted = (pair) => {
+    let changed = false;
+    for (const i of pair) {
+      if (!mountedSetRef.current.has(i)) {
+        mountedSetRef.current.add(i);
+        changed = true;
+      }
+    }
+    if (changed) setMountedVersion((v) => v + 1);
+  };
 
   // ✅ NEW: jump-to-footer lock (prevents renderPair from changing during the jump animation)
   const jumpingRef = useRef(false);
@@ -296,6 +315,9 @@ export default function SecondPageSectionBySectionScroll() {
       renderPairRef.current = lastPair;
       setRenderPair(lastPair);
 
+      // ✅ also ensure they're permanently mounted
+      ensureMounted(lastPair);
+
       // Start a tiny bit BEFORE the transition (still on Life),
       // then animate to a bit AFTER the transition (inside Footer hold).
       const eps = 0.001;
@@ -323,6 +345,7 @@ export default function SecondPageSectionBySectionScroll() {
       window.removeEventListener("clarida-jump-footer", onJumpFooter);
       if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range, bounds]);
 
   // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
@@ -346,10 +369,24 @@ export default function SecondPageSectionBySectionScroll() {
     if (prevPair[0] !== nextPair[0] || prevPair[1] !== nextPair[1]) {
       renderPairRef.current = nextPair;
       setRenderPair(nextPair);
+
+      // ✅ NEW: once a section is mounted, never unmount it
+      ensureMounted(nextPair);
     }
   });
 
-  const shouldRender = (i) => i === renderPair[0] || i === renderPair[1];
+  // ✅ NEW: initial ensure (keeps current behavior: only first pair mounted at load)
+  useEffect(() => {
+    ensureMounted(renderPairRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ NEW: render if ever mounted (ignores renderPair for unmounting)
+  const shouldRender = (i) => {
+    // `mountedVersion` forces re-render when set grows (no other behavior change)
+    void mountedVersion;
+    return mountedSetRef.current.has(i);
+  };
 
   return (
     <section
@@ -393,7 +430,10 @@ export default function SecondPageSectionBySectionScroll() {
             className="absolute inset-0 z-30"
           >
             <Suspense fallback={null}>
-              <LifestyleVisionExternal progress={lifeProgress} active={activeIndex === 2} />
+              <LifestyleVisionExternal
+                progress={lifeProgress}
+                active={activeIndex === 2}
+              />
             </Suspense>
           </motion.div>
         )}
