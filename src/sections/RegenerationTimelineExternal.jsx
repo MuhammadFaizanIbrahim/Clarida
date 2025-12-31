@@ -226,12 +226,12 @@ export default function RegenerationTimelineExternal({
 
   // ✅ entry behavior
   const activeStartRef = useRef(0);
-  const ENTRY_REBASE_MAX = 0.22;
+  const ENTRY_REBASE_MAX = 0.32;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
   // ✅ Hold at start/end
-  const START_HOLD_P = 0.10;
-  const END_HOLD_P = 0.10;
+  const START_HOLD_P = 0.20;
+  const END_HOLD_P = 0.15;
 
   // ✅ internal progress
   const smoothObjRef = useRef({ p: 0 });
