@@ -9,11 +9,11 @@ export function useLenisSmoothScroll() {
     gsap.registerPlugin(ScrollTrigger);
 
     const lenis = new Lenis({
-      duration: 1.2,
+      duration: 1.5,
       smoothWheel: true,
       smoothTouch: false,
       lerp: 0.1,
-      wheelMultiplier: 0.9,
+      wheelMultiplier: 0.6,
     });
 
     lenis.on("scroll", ScrollTrigger.update);
