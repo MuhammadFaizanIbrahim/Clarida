@@ -97,7 +97,7 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
   // ✅ Hold at start/end so arc transition can finish before timeline starts moving
-  const START_HOLD_P = 0.20; // 10% hold at start
+  const START_HOLD_P = 0.30; // 10% hold at start
   const END_HOLD_P = 0.15;   // 10% hold at end
 
   // ✅ smooth internal progress (prevents teleport on parent progress jumps)

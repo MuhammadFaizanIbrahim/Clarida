@@ -230,7 +230,7 @@ export default function RegenerationTimelineExternal({
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
   // ✅ Hold at start/end
-  const START_HOLD_P = 0.20;
+  const START_HOLD_P = 0.15;
   const END_HOLD_P = 0.15;
 
   // ✅ internal progress
