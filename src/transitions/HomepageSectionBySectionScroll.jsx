@@ -78,7 +78,7 @@ export default function HomepageSectionBySectionScroll() {
       HERO_HOLD: 25,
       HERO_TO_INTER: 75,
 
-      INTER_HOLD: 800,
+      INTER_HOLD: 600,
       INTER_TO_TEST: 75,
 
       TEST_HOLD: 45,
@@ -87,16 +87,16 @@ export default function HomepageSectionBySectionScroll() {
       DIFF_HOLD: 220,
       DIFF_TO_REGEN: 75,
 
-      REGEN_HOLD: 460,
+      REGEN_HOLD: 550,
       REGEN_TO_ACT: 75,
 
-      ACT_HOLD: 340,
+      ACT_HOLD: 420,
       ACT_TO_GUAR: 75,
 
-      GUAR_HOLD: 340,
+      GUAR_HOLD: 570,
       GUAR_TO_IMPACT: 75,
 
-      IMPACT_HOLD: 240,
+      IMPACT_HOLD: 360,
       IMPACT_TO_FOOTER: 75,
 
       FOOTER_HOLD: 100,
