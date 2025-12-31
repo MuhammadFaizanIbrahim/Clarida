@@ -98,7 +98,7 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
 
   // ✅ Hold at start/end so arc transition can finish before timeline starts moving
   const START_HOLD_P = 0.20; // 10% hold at start
-  const END_HOLD_P = 0.16;   // 10% hold at end
+  const END_HOLD_P = 0.15;   // 10% hold at end
 
   // ✅ smooth internal progress (prevents teleport on parent progress jumps)
   const smoothObjRef = useRef({ p: 0 });
