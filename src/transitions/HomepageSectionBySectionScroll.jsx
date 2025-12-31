@@ -78,7 +78,7 @@ export default function HomepageSectionBySectionScroll() {
       HERO_HOLD: 25,
       HERO_TO_INTER: 75,
 
-      INTER_HOLD: 420,
+      INTER_HOLD: 800,
       INTER_TO_TEST: 75,
 
       TEST_HOLD: 45,
