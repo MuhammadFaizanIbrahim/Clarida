@@ -115,20 +115,29 @@ const ARRIVE_EPS_FRAC = 0.045;
 // ✅ one step per gesture
 const STEP_DELTA_PX = 180;
 
-// ✅ edge holds (this is your “start hold / end hold” in a step-based system)
+// ✅ edge holds
 const EDGE_HOLD_PX = 240;
-
-// ✅ exiting the whole section needs extra push
-const EXIT_DELTA_PX = 420;
-
-// ✅ when we allow exiting, let Lenis run briefly
-const ALLOW_NATIVE_MS = 260;
-
-// ✅ absorb inertia after landing at center (prevents auto-advance)
-const ARRIVAL_COOLDOWN_MS = 260;
 
 // ✅ cap per-event delta
 const MAX_EVENT_DELTA = 90;
+
+// ✅ ignore tiny deltas (trackpad noise / inertia tail)
+const MIN_EVENT_DELTA = 12;
+
+// ✅ if user pauses, require a fresh intent (prevents inertia carry-over)
+const GESTURE_IDLE_MS = 170;
+
+// ✅ require intent before arming EXIT at edges
+const EXIT_ARM_PX = 220;
+
+// ✅ extra "scroll space" at edges before moving inward
+const EDGE_INWARD_PX = 320;
+
+// ✅ HARD dwell at each card
+const ARRIVAL_COOLDOWN_MS = 520;
+
+// ✅ controlled exit animation
+const EXIT_ANIM_MS = 650;
 
 export default function RegenerationTimelineExternal({
   progress = 0,
@@ -204,7 +213,7 @@ export default function RegenerationTimelineExternal({
   const ENTRY_REBASE_MAX = 0.32;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
-  // ✅ Hold at start/end (kept for initial alignment / sync)
+  // ✅ Hold at start/end
   const START_HOLD_P = 0.15;
   const END_HOLD_P = 0.05;
 
@@ -217,24 +226,51 @@ export default function RegenerationTimelineExternal({
   // ✅ latest normalized input (post holds) – sync only
   const latestInputRef = useRef(0);
 
+  // ✅ MUST show all steps before exit
+  const visitedRef = useRef(new Set());
+
+  // ✅ controlled exit state
+  const exitRef = useRef({ inProgress: false, until: 0, dir: 0 });
+  const exitTimerRef = useRef(null);
+
+  // ✅ after exit trigger, let page scroll normally (no more capture blocking)
+  const passThroughRef = useRef(false);
+
   // ✅ Lenis control
   const lenisApi = useLenisSmoothScroll();
-  const lenis = lenisApi?.lenis ?? lenisApi;
+  const lenis =
+    (typeof window !== "undefined" && window.lenis) ||
+    (lenisApi?.lenis ?? lenisApi);
+
   const lenisStoppedRef = useRef(false);
+
+  const syncLenisTargetToScroll = () => {
+    if (!lenis || typeof window === "undefined") return;
+    try {
+      lenis.scrollTo?.(window.scrollY, { immediate: true });
+    } catch {}
+  };
 
   const setLenisStopped = (shouldStop) => {
     if (!lenis) return;
+
     if (shouldStop && !lenisStoppedRef.current) {
+      syncLenisTargetToScroll();
       lenis.stop?.();
       lenisStoppedRef.current = true;
     } else if (!shouldStop && lenisStoppedRef.current) {
+      syncLenisTargetToScroll();
       lenis.start?.();
       lenisStoppedRef.current = false;
     }
   };
 
   useEffect(() => {
-    return () => setLenisStopped(false);
+    return () => {
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+      passThroughRef.current = false;
+      setLenisStopped(false);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -249,14 +285,12 @@ export default function RegenerationTimelineExternal({
     gsap.set(track, { x });
     gsap.set(timeBar, { x });
 
-    // ✅ IMPORTANT: use DISPLAY length for card positions (prevents “ending early”)
     const maxCardIndex = Math.max(displaySteps.length - 1, 1);
     const indexFloat = p * maxCardIndex;
     const cardA = Math.floor(indexFloat);
     const t = indexFloat - cardA;
     const cardB = Math.min(cardA + 1, maxCardIndex);
 
-    // background crossfade based on baseIndex (so mobile split shares same bg)
     const aBase = displaySteps[cardA]?.baseIndex ?? 0;
     const bBase = displaySteps[cardB]?.baseIndex ?? aBase;
 
@@ -276,6 +310,7 @@ export default function RegenerationTimelineExternal({
 
     const newStep = Math.round(indexFloat);
     const clampedStep = Math.min(Math.max(newStep, 0), maxCardIndex);
+
     if (clampedStep !== stepIndexRef.current) {
       stepIndexRef.current = clampedStep;
       setStepIndex(clampedStep);
@@ -324,30 +359,80 @@ export default function RegenerationTimelineExternal({
     return pHeld;
   };
 
-  // ✅ step-lock state (indexed by DISPLAY steps)
   const stepLockRef = useRef({
     init: false,
     idx: 0,
     mode: "approach", // "approach" | "locked"
     cooldownUntil: 0,
+
     exitArmed: false,
+    stepArmed: false,
+    stepArmDir: 0,
   });
 
   const stepAccumRef = useRef(0);
   const exitAccumRef = useRef(0);
   const edgeHoldRef = useRef(0);
-  const allowNativeUntilRef = useRef(0);
   const touchLastYRef = useRef(null);
+
+  const exitArmAccumRef = useRef(0);
+  const lastGestureTimeRef = useRef(0);
+  const lastDirRef = useRef(0);
 
   const clearAccums = () => {
     stepAccumRef.current = 0;
     exitAccumRef.current = 0;
+    exitArmAccumRef.current = 0;
   };
 
   const clampDelta = (d) => {
     if (d > MAX_EVENT_DELTA) return MAX_EVENT_DELTA;
     if (d < -MAX_EVENT_DELTA) return -MAX_EVENT_DELTA;
     return d;
+  };
+
+  const hasVisitedAll = () => {
+    const maxIndex = Math.max(displaySteps.length - 1, 1);
+    return visitedRef.current.size >= maxIndex + 1;
+  };
+
+  // ✅ NEW: if user enters from below, allow immediate exit (don’t force re-visiting all cards)
+  const fillVisitedAll = () => {
+    const maxIndex = Math.max(displaySteps.length - 1, 1);
+    visitedRef.current = new Set(
+      Array.from({ length: maxIndex + 1 }, (_, i) => i)
+    );
+  };
+
+  const stopRaf = () => {
+    if (!rafRef.current) return;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+  };
+
+  const startControlledExit = (dir, now) => {
+    if (exitRef.current.inProgress) return;
+
+    exitRef.current.inProgress = true;
+    exitRef.current.dir = dir;
+    exitRef.current.until = now + EXIT_ANIM_MS;
+
+    // ✅ After exit triggers, allow normal page scroll (stop intercepting + release Lenis)
+    passThroughRef.current = true;
+    setLenisStopped(false);
+    stopRaf();
+
+    // ✅ parent hook
+    window.dispatchEvent(
+      new CustomEvent("clarida-regen-exit", { detail: { dir } })
+    );
+
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    exitTimerRef.current = setTimeout(() => {
+      exitRef.current.inProgress = false;
+      exitRef.current.dir = 0;
+      exitRef.current.until = 0;
+    }, 950);
   };
 
   const bumpStep = (dir, now) => {
@@ -361,96 +446,170 @@ export default function RegenerationTimelineExternal({
     if (nextIdx !== stepLockRef.current.idx) {
       stepLockRef.current.idx = nextIdx;
       stepLockRef.current.mode = "approach";
+
+      stepLockRef.current.stepArmed = false;
+      stepLockRef.current.stepArmDir = 0;
       stepLockRef.current.exitArmed = false;
-      stepLockRef.current.cooldownUntil = now + 60;
+      exitArmAccumRef.current = 0;
 
       edgeHoldRef.current = 0;
       clearAccums();
+
+      stepLockRef.current.cooldownUntil = now + 40;
     }
   };
 
-  // ✅ GLOBAL interception while active (fix: no more “exits after 4–5 cards”)
   const handleGestureDelta = (rawDeltaY, now) => {
     if (!active) return { prevent: false };
 
-    const inExitWindow = now < allowNativeUntilRef.current;
+    // ✅ After exit triggered, do NOT block scroll anymore.
+    if (passThroughRef.current) {
+      setLenisStopped(false);
+      return { prevent: false };
+    }
 
-    // stop Lenis while we're controlling steps (and not exiting)
-    setLenisStopped(!inExitWindow);
+    // ✅ while active, hard-stop Lenis always (no native momentum)
+    setLenisStopped(true);
 
-    if (inExitWindow) return { prevent: false };
+    // ✅ swallow input while exit anim is flagged
+    if (exitRef.current.inProgress) return { prevent: true };
+
+    if (Math.abs(rawDeltaY) < MIN_EVENT_DELTA) return { prevent: true };
 
     const delta = clampDelta(rawDeltaY);
     const dir = delta > 0 ? 1 : delta < 0 ? -1 : 0;
     if (dir === 0) return { prevent: true };
 
-    // absorb inertia right after arriving at center
+    const maxIndex = Math.max(displaySteps.length - 1, 1);
+    const atStart = stepLockRef.current.idx === 0;
+    const atEnd = stepLockRef.current.idx === maxIndex;
+
+    const tryingExit = (atStart && dir < 0) || (atEnd && dir > 0);
+
+    const lastT = lastGestureTimeRef.current || 0;
+    if (now - lastT > GESTURE_IDLE_MS) {
+      stepLockRef.current.stepArmed = false;
+      stepLockRef.current.stepArmDir = 0;
+
+      if (!tryingExit) {
+        stepLockRef.current.exitArmed = false;
+        exitArmAccumRef.current = 0;
+      }
+
+      edgeHoldRef.current = 0;
+
+      stepAccumRef.current = 0;
+      exitAccumRef.current = 0;
+      if (!tryingExit) exitArmAccumRef.current = 0;
+    }
+    lastGestureTimeRef.current = now;
+
+    if (lastDirRef.current && dir !== lastDirRef.current) {
+      stepLockRef.current.stepArmed = false;
+      stepLockRef.current.stepArmDir = dir;
+      stepLockRef.current.exitArmed = false;
+      exitArmAccumRef.current = 0;
+      edgeHoldRef.current = 0;
+      clearAccums();
+    }
+    lastDirRef.current = dir;
+
     if (now < stepLockRef.current.cooldownUntil) {
       edgeHoldRef.current = 0;
       clearAccums();
       return { prevent: true };
     }
 
-    // while approaching, block scroll so we MUST land at center
     if (stepLockRef.current.mode === "approach") {
+      stepLockRef.current.stepArmed = false;
+      stepLockRef.current.stepArmDir = 0;
+      stepLockRef.current.exitArmed = false;
+      exitArmAccumRef.current = 0;
+
       edgeHoldRef.current = 0;
       clearAccums();
       return { prevent: true };
     }
 
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-    const atStart = stepLockRef.current.idx === 0;
-    const atEnd = stepLockRef.current.idx === maxIndex;
-
-    // ----- EDGE HOLD (this is your start/end hold) -----
-    // Moving inward from an edge requires an intentional extra scroll first.
+    // EDGE padding (move inward)
     if ((atStart && dir > 0) || (atEnd && dir < 0)) {
       edgeHoldRef.current += Math.abs(delta);
 
-      if (edgeHoldRef.current >= EDGE_HOLD_PX) {
+      if (!stepLockRef.current.stepArmed) {
+        stepLockRef.current.stepArmed = true;
+        stepLockRef.current.stepArmDir = dir;
+        return { prevent: true };
+      }
+      if (stepLockRef.current.stepArmDir !== dir) {
+        stepLockRef.current.stepArmDir = dir;
         edgeHoldRef.current = 0;
-        bumpStep(dir, now); // move inward
+        return { prevent: true };
+      }
+
+      if (edgeHoldRef.current >= EDGE_INWARD_PX) {
+        edgeHoldRef.current = 0;
+        stepLockRef.current.stepArmed = false;
+        stepLockRef.current.stepArmDir = 0;
+        bumpStep(dir, now);
       }
 
       return { prevent: true };
     }
 
-    // ----- EXIT HOLD (leaving the entire section) -----
-    // Exiting beyond the bounds requires two phases:
-    // 1) arm exit (first intent)
-    // 2) accumulate EXIT_DELTA_PX (second stronger push)
+    // EXIT outward (ONLY after all cards visited)
     if ((atStart && dir < 0) || (atEnd && dir > 0)) {
-      if (!stepLockRef.current.exitArmed) {
-        stepLockRef.current.exitArmed = true;
+      if (!hasVisitedAll()) {
         edgeHoldRef.current = 0;
         clearAccums();
         return { prevent: true };
       }
 
+      if (!stepLockRef.current.exitArmed) {
+        exitArmAccumRef.current += Math.abs(delta);
+        if (exitArmAccumRef.current >= EXIT_ARM_PX) {
+          stepLockRef.current.exitArmed = true;
+          exitArmAccumRef.current = 0;
+          clearAccums();
+        }
+        return { prevent: true };
+      }
+
       exitAccumRef.current += delta;
-
-      if (Math.abs(exitAccumRef.current) >= EXIT_DELTA_PX) {
-        allowNativeUntilRef.current = now + ALLOW_NATIVE_MS;
+      if (Math.abs(exitAccumRef.current) >= EDGE_HOLD_PX) {
         stepLockRef.current.exitArmed = false;
-
+        exitArmAccumRef.current = 0;
         edgeHoldRef.current = 0;
         clearAccums();
 
-        // let Lenis run so page can actually leave
-        setLenisStopped(false);
-        return { prevent: false };
+        startControlledExit(dir, now);
+        return { prevent: true };
       }
 
       return { prevent: true };
     }
 
-    // ----- MID-SECTION stepping -----
+    // MID stepping (one card at a time)
     stepLockRef.current.exitArmed = false;
+    exitArmAccumRef.current = 0;
     edgeHoldRef.current = 0;
 
-    stepAccumRef.current += delta;
+    if (!stepLockRef.current.stepArmed) {
+      stepLockRef.current.stepArmed = true;
+      stepLockRef.current.stepArmDir = dir;
+      clearAccums();
+      return { prevent: true };
+    }
 
+    if (stepLockRef.current.stepArmDir !== dir) {
+      stepLockRef.current.stepArmDir = dir;
+      clearAccums();
+      return { prevent: true };
+    }
+
+    stepAccumRef.current += delta;
     if (Math.abs(stepAccumRef.current) >= STEP_DELTA_PX) {
+      stepLockRef.current.stepArmed = false;
+      stepLockRef.current.stepArmDir = 0;
       bumpStep(Math.sign(stepAccumRef.current), now);
       clearAccums();
     }
@@ -458,14 +617,17 @@ export default function RegenerationTimelineExternal({
     return { prevent: true };
   };
 
-  // ✅ input interception (GLOBAL while active)
+  // ✅ input interception (GLOBAL while active) - CAPTURE PHASE (beats Lenis)
   useEffect(() => {
     if (!active) return;
 
     const onWheel = (e) => {
       const now = performance.now();
       const { prevent } = handleGestureDelta(e.deltaY, now);
-      if (prevent) e.preventDefault();
+      if (prevent) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     };
 
     const onTouchStart = (e) => {
@@ -482,20 +644,28 @@ export default function RegenerationTimelineExternal({
       if (lastY == null) return;
 
       const deltaY = lastY - t.clientY;
-
       const now = performance.now();
       const { prevent } = handleGestureDelta(deltaY, now);
-      if (prevent) e.preventDefault();
+      if (prevent) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     };
 
-    window.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    window.addEventListener("touchstart", onTouchStart, {
+      passive: true,
+      capture: true,
+    });
+    window.addEventListener("touchmove", onTouchMove, {
+      passive: false,
+      capture: true,
+    });
 
     return () => {
-      window.removeEventListener("wheel", onWheel);
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("wheel", onWheel, { capture: true });
+      window.removeEventListener("touchstart", onTouchStart, { capture: true });
+      window.removeEventListener("touchmove", onTouchMove, { capture: true });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
@@ -521,7 +691,6 @@ export default function RegenerationTimelineExternal({
       const maxIndex = Math.max(displaySteps.length - 1, 1);
       const seg = 1 / maxIndex;
 
-      // init idx to nearest center once
       if (!stepLockRef.current.init) {
         const initIdx = Math.round(clamp01(current) * maxIndex);
         stepLockRef.current.init = true;
@@ -529,6 +698,9 @@ export default function RegenerationTimelineExternal({
         stepLockRef.current.mode = "approach";
         stepLockRef.current.cooldownUntil = 0;
         stepLockRef.current.exitArmed = false;
+        stepLockRef.current.stepArmed = false;
+        stepLockRef.current.stepArmDir = 0;
+        exitArmAccumRef.current = 0;
 
         edgeHoldRef.current = 0;
         clearAccums();
@@ -536,12 +708,16 @@ export default function RegenerationTimelineExternal({
 
       const lockCenter = stepLockRef.current.idx / maxIndex;
 
-      // detect arrival
       if (stepLockRef.current.mode === "approach") {
         const arrived = Math.abs(current - lockCenter) <= seg * ARRIVE_EPS_FRAC;
         if (arrived) {
           stepLockRef.current.mode = "locked";
           stepLockRef.current.exitArmed = false;
+          stepLockRef.current.stepArmed = false;
+          stepLockRef.current.stepArmDir = 0;
+          exitArmAccumRef.current = 0;
+
+          visitedRef.current.add(stepLockRef.current.idx);
           stepLockRef.current.cooldownUntil = now + ARRIVAL_COOLDOWN_MS;
 
           clearAccums();
@@ -560,22 +736,18 @@ export default function RegenerationTimelineExternal({
     rafRef.current = requestAnimationFrame(tick);
   };
 
-  const stopRaf = () => {
-    if (!rafRef.current) return;
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-  };
-
   const syncVisual = (pRaw) => {
     stepLockRef.current.init = false;
     stepLockRef.current.idx = 0;
     stepLockRef.current.mode = "approach";
     stepLockRef.current.cooldownUntil = 0;
     stepLockRef.current.exitArmed = false;
+    stepLockRef.current.stepArmed = false;
+    stepLockRef.current.stepArmDir = 0;
+    exitArmAccumRef.current = 0;
 
     edgeHoldRef.current = 0;
     clearAccums();
-    allowNativeUntilRef.current = 0;
 
     const pFinal = computeHeldP(pRaw);
 
@@ -599,6 +771,9 @@ export default function RegenerationTimelineExternal({
     stepLockRef.current.mode = "approach";
     stepLockRef.current.cooldownUntil = 0;
     stepLockRef.current.exitArmed = false;
+    stepLockRef.current.stepArmed = false;
+    stepLockRef.current.stepArmDir = 0;
+    exitArmAccumRef.current = 0;
 
     edgeHoldRef.current = 0;
     clearAccums();
@@ -606,27 +781,43 @@ export default function RegenerationTimelineExternal({
   };
 
   useEffect(() => {
+    // ✅ reset pass-through any time active toggles
+    passThroughRef.current = false;
+
     if (!active) {
       setLenisStopped(false);
       stopRaf();
       return;
     }
 
-    // active: stop Lenis so it cannot fling you out early
+    // ✅ hard lock page scroll while active
     setLenisStopped(true);
+
+    visitedRef.current = new Set();
+    exitRef.current = { inProgress: false, until: 0, dir: 0 };
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
 
     stepLockRef.current.init = false;
     stepLockRef.current.idx = 0;
     stepLockRef.current.mode = "approach";
     stepLockRef.current.cooldownUntil = 0;
     stepLockRef.current.exitArmed = false;
+    stepLockRef.current.stepArmed = false;
+    stepLockRef.current.stepArmDir = 0;
+    exitArmAccumRef.current = 0;
 
     edgeHoldRef.current = 0;
     clearAccums();
-    allowNativeUntilRef.current = 0;
 
     const current = clamp01(mv.get?.() ?? 0);
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
+
+    // ✅ IMPORTANT FIX:
+    // If user is coming from BELOW (scrolling upward into regen hold),
+    // allow immediate edge exit (don’t force them to re-visit all cards).
+    if (enteringFromBelow) {
+      fillVisitedAll();
+    }
 
     if (enteringFromBelow) {
       activeStartRef.current = 0;
@@ -651,10 +842,7 @@ export default function RegenerationTimelineExternal({
     if (!track) return;
 
     const compute = () => {
-      totalScrollRef.current = Math.max(
-        track.scrollWidth - window.innerWidth,
-        0
-      );
+      totalScrollRef.current = Math.max(track.scrollWidth - window.innerWidth, 0);
       renderAt(smoothObjRef.current.p);
     };
 
@@ -676,15 +864,10 @@ export default function RegenerationTimelineExternal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displaySteps.length]);
 
-  // ✅ when inactive, sync; when active, only respond during allowed exit window
+  // ✅ When active, IGNORE mv changes completely
   useMotionValueEvent(mv, "change", (v) => {
     if (!active) {
       syncVisual(v);
-      return;
-    }
-    const now = performance.now();
-    if (now < allowNativeUntilRef.current) {
-      apply(v);
     }
   });
 
@@ -934,10 +1117,7 @@ export default function RegenerationTimelineExternal({
                           .map((word, i) => {
                             if (word.toLowerCase().includes("listens")) {
                               return (
-                                <span
-                                  key={i}
-                                  className="font-bold h2-text-bold"
-                                >
+                                <span key={i} className="font-bold h2-text-bold">
                                   {word}{" "}
                                 </span>
                               );
@@ -952,10 +1132,7 @@ export default function RegenerationTimelineExternal({
                         {item.title.split(" ").map((word, i) => {
                           if (word.toLowerCase().includes("listens")) {
                             return (
-                              <span
-                                key={i}
-                                className="font-bold h2-text-bold"
-                              >
+                              <span key={i} className="font-bold h2-text-bold">
                                 {word}{" "}
                               </span>
                             );

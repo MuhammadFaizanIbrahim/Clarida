@@ -87,7 +87,7 @@ export default function HomepageSectionBySectionScroll() {
       DIFF_HOLD: 220,
       DIFF_TO_REGEN: 75,
 
-      REGEN_HOLD: 1250,
+      REGEN_HOLD: 550,
       REGEN_TO_ACT: 75,
 
       ACT_HOLD: 420,
@@ -130,6 +130,7 @@ export default function HomepageSectionBySectionScroll() {
 
   // fixed pin
   const [pinMode, setPinMode] = useState("before");
+  const [regenLock, setRegenLock] = useState(false);
   const [range, setRange] = useState({ start: 0, end: 0 });
 
   useEffect(() => {
@@ -373,7 +374,11 @@ export default function HomepageSectionBySectionScroll() {
     ? 1
     : useTransform(
         scrollYProgress,
-        [bounds.HERO_HOLD.start, bounds.HERO_HOLD.end, bounds.HERO_TO_INTER.end],
+        [
+          bounds.HERO_HOLD.start,
+          bounds.HERO_HOLD.end,
+          bounds.HERO_TO_INTER.end,
+        ],
         [1, 1, 0],
         { clamp: true }
       );
@@ -584,6 +589,9 @@ export default function HomepageSectionBySectionScroll() {
     else if (p < bounds.IMPACT_TO_FOOTER.start) setActiveIndex(7);
     else setActiveIndex(8);
 
+    // ✅ lock regen ONLY during HOLD (not during fade-in / fade-out)
+    setRegenLock(p >= bounds.REGEN_HOLD.start && p < bounds.REGEN_HOLD.end);
+
     // ✅ during jump: do NOT overwrite forced lastPair
     if (jumpingRef.current) return;
 
@@ -610,6 +618,64 @@ export default function HomepageSectionBySectionScroll() {
 
   // ✅ NEW: render if it has ever been mounted
   const shouldRender = (i) => mountedSet.has(i);
+
+  useEffect(() => {
+    const scrollToY = (y, opts) => {
+      if (window.lenis && typeof window.lenis.scrollTo === "function") {
+        window.lenis.scrollTo(y, opts);
+      } else {
+        window.scrollTo({
+          top: y,
+          left: 0,
+          behavior: opts?.immediate ? "auto" : "smooth",
+        });
+      }
+    };
+  
+    const onRegenExit = (e) => {
+      const dir = e?.detail?.dir ?? 1;
+      const { start, end } = range;
+      if (!start && !end) return;
+  
+      const dist = end - start;
+  
+      // Small normalized offsets
+      const eps = 0.001;
+      const nudgeFrac = 0.14; // how deep into transition we "nudge" so fade/arc plays
+  
+      if (dir > 0) {
+        // ✅ DOWN: jump straight to the START of REGEN_TO_ACT, then nudge into it
+        const pHard = Math.min(1, bounds.REGEN_HOLD.end + eps); // == bounds.REGEN_TO_ACT.start
+        const transLen = bounds.REGEN_TO_ACT.end - bounds.REGEN_TO_ACT.start;
+        const pNudge = Math.min(1, pHard + transLen * nudgeFrac);
+  
+        // instant jump (no 550vh travel)
+        scrollToY(start + pHard * dist, { immediate: true });
+  
+        // small animated nudge for a smooth "leaving" feel
+        requestAnimationFrame(() => {
+          scrollToY(start + pNudge * dist, { duration: 0.45 });
+        });
+  
+        return;
+      }
+  
+      // ✅ UP: jump to JUST BEFORE REGEN_HOLD.start (inside DIFF_TO_REGEN end),
+      // then nudge slightly upward so the transition plays without a long travel.
+      const pHard = Math.max(0, bounds.REGEN_HOLD.start - eps); // == bounds.DIFF_TO_REGEN.end - eps
+      const transLen = bounds.DIFF_TO_REGEN.end - bounds.DIFF_TO_REGEN.start;
+      const pNudge = Math.max(0, pHard - transLen * nudgeFrac);
+  
+      scrollToY(start + pHard * dist, { immediate: true });
+      requestAnimationFrame(() => {
+        scrollToY(start + pNudge * dist, { duration: 0.45 });
+      });
+    };
+  
+    window.addEventListener("clarida-regen-exit", onRegenExit);
+    return () => window.removeEventListener("clarida-regen-exit", onRegenExit);
+  }, [range, bounds]);
+  
 
   return (
     <section
@@ -686,7 +752,7 @@ export default function HomepageSectionBySectionScroll() {
             <Suspense fallback={null}>
               <RegenerationTimelineExternal
                 progress={regenProgress}
-                active={activeIndex === 4}
+                active={regenLock}
               />
             </Suspense>
           </motion.div>
