@@ -87,7 +87,7 @@ export default function HomepageSectionBySectionScroll() {
       DIFF_HOLD: 220,
       DIFF_TO_REGEN: 75,
 
-      REGEN_HOLD: 550,
+      REGEN_HOLD: 1000,
       REGEN_TO_ACT: 75,
 
       ACT_HOLD: 420,
@@ -677,6 +677,43 @@ export default function HomepageSectionBySectionScroll() {
   }, [range, bounds]);
   
 
+  const regenClamp = useMemo(() => {
+    const { start, end } = range;
+    if (!start && !end) return null;
+    const dist = end - start;
+  
+    return {
+      min: start + bounds.REGEN_HOLD.start * dist,
+      max: start + bounds.REGEN_HOLD.end * dist,
+    };
+  }, [range, bounds]);
+
+  useEffect(() => {
+    const scrollToY = (y, opts) => {
+      if (window.lenis && typeof window.lenis.scrollTo === "function") {
+        window.lenis.scrollTo(y, opts);
+      } else {
+        window.scrollTo({ top: y, left: 0, behavior: opts?.immediate ? "auto" : "smooth" });
+      }
+    };
+  
+    const onRegenJumpEnd = () => {
+      const { start, end } = range;
+      if (!start && !end) return;
+  
+      const dist = end - start;
+      const eps = 0.001;
+  
+      // go to END of REGEN_HOLD (stay inside regen)
+      const pTarget = Math.max(0, Math.min(1, bounds.REGEN_HOLD.end - eps));
+      scrollToY(start + pTarget * dist, { duration: 1.0 });
+    };
+  
+    window.addEventListener("clarida-regen-jump-end", onRegenJumpEnd);
+    return () => window.removeEventListener("clarida-regen-jump-end", onRegenJumpEnd);
+  }, [range, bounds]);
+  
+
   return (
     <section
       ref={sectionRef}
@@ -753,6 +790,7 @@ export default function HomepageSectionBySectionScroll() {
               <RegenerationTimelineExternal
                 progress={regenProgress}
                 active={regenLock}
+                scrollClamp={regenClamp}
               />
             </Suspense>
           </motion.div>

@@ -108,41 +108,41 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const isMotionValue = (v) =>
   v && typeof v === "object" && typeof v.get === "function";
 
-// ✅ keep it light
-const SMOOTH_TIME = 0.22;
-const ARRIVE_EPS_FRAC = 0.045;
+// ✅ smoothing (used for “settle” / non-step updates)
+const SMOOTH_DUR = 0.28; // was 0.18 (slightly slower settle = smoother)
 
-// ✅ one step per gesture
-const STEP_DELTA_PX = 180;
+// ✅ step-to-step slide duration (THIS is what you feel)
+const STEP_ANIM_DUR = 0.9; // was 0.65 (longer = smoother)
+const STEP_EASE = "power2.inOut"; // smoother leave + smoother arrival
 
-// ✅ edge holds
-const EDGE_HOLD_PX = 240;
+// ✅ entry behavior
+const ENTRY_REBASE_MAX = 0.32;
+const ENTRY_FROM_BELOW_MIN = 0.75;
 
-// ✅ cap per-event delta
-const MAX_EVENT_DELTA = 90;
+// ✅ Hold at start/end so arc transition can finish before timeline starts moving
+const START_HOLD_P = 0.15;
+const END_HOLD_P = 0.05;
 
-// ✅ ignore tiny deltas (trackpad noise / inertia tail)
-const MIN_EVENT_DELTA = 12;
+// ✅ “double scroll” feel (hysteresis + cooldown)
+const HYSTERESIS = 0.38; // was 0.52 (less travel needed to leave center)
 
-// ✅ if user pauses, require a fresh intent (prevents inertia carry-over)
-const GESTURE_IDLE_MS = 170;
+// ✅ NEW: distance-based commit (prevents "too much scroll")
+const COMMIT_BEYOND = 0.14; // 0.10–0.18 (smaller = easier to go next)
 
-// ✅ require intent before arming EXIT at edges
-const EXIT_ARM_PX = 220;
+// ✅ intent ramp (still used, but now secondary)
+const INTENT_GAIN = 10.0;
+const INTENT_DECAY = 3.2;
+const INTENT_START = 0.55; // head-start when user commits direction
 
-// ✅ extra "scroll space" at edges before moving inward
-const EDGE_INWARD_PX = 320;
 
-// ✅ HARD dwell at each card
-const ARRIVAL_COOLDOWN_MS = 520;
-
-// ✅ controlled exit animation
-const EXIT_ANIM_MS = 650;
+const ARRIVAL_COOLDOWN_MS = 320;
 
 export default function RegenerationTimelineExternal({
   progress = 0,
   active = true,
 }) {
+  useLenisSmoothScroll();
+
   const sectionRef = useRef(null);
   const trackRef = useRef(null);
   const timeBarRef = useRef(null);
@@ -204,75 +204,28 @@ export default function RegenerationTimelineExternal({
   }, [progress, fallback]);
 
   const handleScrollToEnd = () => {
-    const top = window.innerHeight * 4.5;
-    window.scrollBy({ top, behavior: "smooth" });
+    window.dispatchEvent(new CustomEvent("clarida-regen-jump-end"));
   };
 
-  // ✅ entry behavior
   const activeStartRef = useRef(0);
-  const ENTRY_REBASE_MAX = 0.32;
-  const ENTRY_FROM_BELOW_MIN = 0.75;
 
-  // ✅ Hold at start/end
-  const START_HOLD_P = 0.15;
-  const END_HOLD_P = 0.05;
-
-  // ✅ internal progress
   const smoothObjRef = useRef({ p: 0 });
+  const quickToRef = useRef(null);
 
-  // ✅ RAF driver
-  const rafRef = useRef(null);
+  // ✅ step tween guard
+  const moveRef = useRef({ active: false });
 
-  // ✅ latest normalized input (post holds) – sync only
-  const latestInputRef = useRef(0);
+  const lockRef = useRef({
+    idx: 0,
+    cooldownUntil: 0,
+  });
 
-  // ✅ MUST show all steps before exit
-  const visitedRef = useRef(new Set());
-
-  // ✅ controlled exit state
-  const exitRef = useRef({ inProgress: false, until: 0, dir: 0 });
-  const exitTimerRef = useRef(null);
-
-  // ✅ after exit trigger, let page scroll normally (no more capture blocking)
-  const passThroughRef = useRef(false);
-
-  // ✅ Lenis control
-  const lenisApi = useLenisSmoothScroll();
-  const lenis =
-    (typeof window !== "undefined" && window.lenis) ||
-    (lenisApi?.lenis ?? lenisApi);
-
-  const lenisStoppedRef = useRef(false);
-
-  const syncLenisTargetToScroll = () => {
-    if (!lenis || typeof window === "undefined") return;
-    try {
-      lenis.scrollTo?.(window.scrollY, { immediate: true });
-    } catch {}
-  };
-
-  const setLenisStopped = (shouldStop) => {
-    if (!lenis) return;
-
-    if (shouldStop && !lenisStoppedRef.current) {
-      syncLenisTargetToScroll();
-      lenis.stop?.();
-      lenisStoppedRef.current = true;
-    } else if (!shouldStop && lenisStoppedRef.current) {
-      syncLenisTargetToScroll();
-      lenis.start?.();
-      lenisStoppedRef.current = false;
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
-      passThroughRef.current = false;
-      setLenisStopped(false);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ✅ NEW: intent accumulator for ultra-smooth “leaving the center”
+  const intentRef = useRef({
+    dir: 0, // -1 / +1
+    amt: 0, // 0..1
+    lastNow: 0,
+  });
 
   const renderAt = (p) => {
     const track = trackRef.current;
@@ -355,476 +308,175 @@ export default function RegenerationTimelineExternal({
       else pHeld = (pHeld - START_HOLD_P) / denomHold;
     }
 
-    latestInputRef.current = pHeld;
     return pHeld;
   };
 
-  const stepLockRef = useRef({
-    init: false,
-    idx: 0,
-    mode: "approach", // "approach" | "locked"
-    cooldownUntil: 0,
-
-    exitArmed: false,
-    stepArmed: false,
-    stepArmDir: 0,
-  });
-
-  const stepAccumRef = useRef(0);
-  const exitAccumRef = useRef(0);
-  const edgeHoldRef = useRef(0);
-  const touchLastYRef = useRef(null);
-
-  const exitArmAccumRef = useRef(0);
-  const lastGestureTimeRef = useRef(0);
-  const lastDirRef = useRef(0);
-
-  const clearAccums = () => {
-    stepAccumRef.current = 0;
-    exitAccumRef.current = 0;
-    exitArmAccumRef.current = 0;
-  };
-
-  const clampDelta = (d) => {
-    if (d > MAX_EVENT_DELTA) return MAX_EVENT_DELTA;
-    if (d < -MAX_EVENT_DELTA) return -MAX_EVENT_DELTA;
-    return d;
-  };
-
-  const hasVisitedAll = () => {
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-    return visitedRef.current.size >= maxIndex + 1;
-  };
-
-  // ✅ NEW: if user enters from below, allow immediate exit (don’t force re-visiting all cards)
-  const fillVisitedAll = () => {
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-    visitedRef.current = new Set(
-      Array.from({ length: maxIndex + 1 }, (_, i) => i)
-    );
-  };
-
-  const stopRaf = () => {
-    if (!rafRef.current) return;
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-  };
-
-  const startControlledExit = (dir, now) => {
-    if (exitRef.current.inProgress) return;
-
-    exitRef.current.inProgress = true;
-    exitRef.current.dir = dir;
-    exitRef.current.until = now + EXIT_ANIM_MS;
-
-    // ✅ After exit triggers, allow normal page scroll (stop intercepting + release Lenis)
-    passThroughRef.current = true;
-    setLenisStopped(false);
-    stopRaf();
-
-    // ✅ parent hook
-    window.dispatchEvent(
-      new CustomEvent("clarida-regen-exit", { detail: { dir } })
-    );
-
-    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
-    exitTimerRef.current = setTimeout(() => {
-      exitRef.current.inProgress = false;
-      exitRef.current.dir = 0;
-      exitRef.current.until = 0;
-    }, 950);
-  };
-
-  const bumpStep = (dir, now) => {
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-
-    const nextIdx = Math.min(
-      Math.max(stepLockRef.current.idx + dir, 0),
-      maxIndex
-    );
-
-    if (nextIdx !== stepLockRef.current.idx) {
-      stepLockRef.current.idx = nextIdx;
-      stepLockRef.current.mode = "approach";
-
-      stepLockRef.current.stepArmed = false;
-      stepLockRef.current.stepArmDir = 0;
-      stepLockRef.current.exitArmed = false;
-      exitArmAccumRef.current = 0;
-
-      edgeHoldRef.current = 0;
-      clearAccums();
-
-      stepLockRef.current.cooldownUntil = now + 40;
+  const setSmoothTarget = (pTarget) => {
+    const clamped = clamp01(pTarget);
+    if (quickToRef.current) quickToRef.current(clamped);
+    else {
+      smoothObjRef.current.p = clamped;
+      renderAt(clamped);
     }
   };
 
-  const handleGestureDelta = (rawDeltaY, now) => {
-    if (!active) return { prevent: false };
+  // ✅ smooth step-to-step tween (longer + nicer, smoother depart + arrive)
+  const startStepTween = (pTarget) => {
+    const clamped = clamp01(pTarget);
 
-    // ✅ After exit triggered, do NOT block scroll anymore.
-    if (passThroughRef.current) {
-      setLenisStopped(false);
-      return { prevent: false };
-    }
+    moveRef.current.active = true;
 
-    // ✅ while active, hard-stop Lenis always (no native momentum)
-    setLenisStopped(true);
-
-    // ✅ swallow input while exit anim is flagged
-    if (exitRef.current.inProgress) return { prevent: true };
-
-    if (Math.abs(rawDeltaY) < MIN_EVENT_DELTA) return { prevent: true };
-
-    const delta = clampDelta(rawDeltaY);
-    const dir = delta > 0 ? 1 : delta < 0 ? -1 : 0;
-    if (dir === 0) return { prevent: true };
-
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-    const atStart = stepLockRef.current.idx === 0;
-    const atEnd = stepLockRef.current.idx === maxIndex;
-
-    const tryingExit = (atStart && dir < 0) || (atEnd && dir > 0);
-
-    const lastT = lastGestureTimeRef.current || 0;
-    if (now - lastT > GESTURE_IDLE_MS) {
-      stepLockRef.current.stepArmed = false;
-      stepLockRef.current.stepArmDir = 0;
-
-      if (!tryingExit) {
-        stepLockRef.current.exitArmed = false;
-        exitArmAccumRef.current = 0;
-      }
-
-      edgeHoldRef.current = 0;
-
-      stepAccumRef.current = 0;
-      exitAccumRef.current = 0;
-      if (!tryingExit) exitArmAccumRef.current = 0;
-    }
-    lastGestureTimeRef.current = now;
-
-    if (lastDirRef.current && dir !== lastDirRef.current) {
-      stepLockRef.current.stepArmed = false;
-      stepLockRef.current.stepArmDir = dir;
-      stepLockRef.current.exitArmed = false;
-      exitArmAccumRef.current = 0;
-      edgeHoldRef.current = 0;
-      clearAccums();
-    }
-    lastDirRef.current = dir;
-
-    if (now < stepLockRef.current.cooldownUntil) {
-      edgeHoldRef.current = 0;
-      clearAccums();
-      return { prevent: true };
-    }
-
-    if (stepLockRef.current.mode === "approach") {
-      stepLockRef.current.stepArmed = false;
-      stepLockRef.current.stepArmDir = 0;
-      stepLockRef.current.exitArmed = false;
-      exitArmAccumRef.current = 0;
-
-      edgeHoldRef.current = 0;
-      clearAccums();
-      return { prevent: true };
-    }
-
-    // EDGE padding (move inward)
-    if ((atStart && dir > 0) || (atEnd && dir < 0)) {
-      edgeHoldRef.current += Math.abs(delta);
-
-      if (!stepLockRef.current.stepArmed) {
-        stepLockRef.current.stepArmed = true;
-        stepLockRef.current.stepArmDir = dir;
-        return { prevent: true };
-      }
-      if (stepLockRef.current.stepArmDir !== dir) {
-        stepLockRef.current.stepArmDir = dir;
-        edgeHoldRef.current = 0;
-        return { prevent: true };
-      }
-
-      if (edgeHoldRef.current >= EDGE_INWARD_PX) {
-        edgeHoldRef.current = 0;
-        stepLockRef.current.stepArmed = false;
-        stepLockRef.current.stepArmDir = 0;
-        bumpStep(dir, now);
-      }
-
-      return { prevent: true };
-    }
-
-    // EXIT outward (ONLY after all cards visited)
-    if ((atStart && dir < 0) || (atEnd && dir > 0)) {
-      if (!hasVisitedAll()) {
-        edgeHoldRef.current = 0;
-        clearAccums();
-        return { prevent: true };
-      }
-
-      if (!stepLockRef.current.exitArmed) {
-        exitArmAccumRef.current += Math.abs(delta);
-        if (exitArmAccumRef.current >= EXIT_ARM_PX) {
-          stepLockRef.current.exitArmed = true;
-          exitArmAccumRef.current = 0;
-          clearAccums();
-        }
-        return { prevent: true };
-      }
-
-      exitAccumRef.current += delta;
-      if (Math.abs(exitAccumRef.current) >= EDGE_HOLD_PX) {
-        stepLockRef.current.exitArmed = false;
-        exitArmAccumRef.current = 0;
-        edgeHoldRef.current = 0;
-        clearAccums();
-
-        startControlledExit(dir, now);
-        return { prevent: true };
-      }
-
-      return { prevent: true };
-    }
-
-    // MID stepping (one card at a time)
-    stepLockRef.current.exitArmed = false;
-    exitArmAccumRef.current = 0;
-    edgeHoldRef.current = 0;
-
-    if (!stepLockRef.current.stepArmed) {
-      stepLockRef.current.stepArmed = true;
-      stepLockRef.current.stepArmDir = dir;
-      clearAccums();
-      return { prevent: true };
-    }
-
-    if (stepLockRef.current.stepArmDir !== dir) {
-      stepLockRef.current.stepArmDir = dir;
-      clearAccums();
-      return { prevent: true };
-    }
-
-    stepAccumRef.current += delta;
-    if (Math.abs(stepAccumRef.current) >= STEP_DELTA_PX) {
-      stepLockRef.current.stepArmed = false;
-      stepLockRef.current.stepArmDir = 0;
-      bumpStep(Math.sign(stepAccumRef.current), now);
-      clearAccums();
-    }
-
-    return { prevent: true };
-  };
-
-  // ✅ input interception (GLOBAL while active) - CAPTURE PHASE (beats Lenis)
-  useEffect(() => {
-    if (!active) return;
-
-    const onWheel = (e) => {
-      const now = performance.now();
-      const { prevent } = handleGestureDelta(e.deltaY, now);
-      if (prevent) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-
-    const onTouchStart = (e) => {
-      const t = e.touches && e.touches[0];
-      touchLastYRef.current = t ? t.clientY : null;
-    };
-
-    const onTouchMove = (e) => {
-      const t = e.touches && e.touches[0];
-      if (!t) return;
-
-      const lastY = touchLastYRef.current;
-      touchLastYRef.current = t.clientY;
-      if (lastY == null) return;
-
-      const deltaY = lastY - t.clientY;
-      const now = performance.now();
-      const { prevent } = handleGestureDelta(deltaY, now);
-      if (prevent) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-
-    window.addEventListener("wheel", onWheel, { passive: false, capture: true });
-    window.addEventListener("touchstart", onTouchStart, {
-      passive: true,
-      capture: true,
+    gsap.to(smoothObjRef.current, {
+      p: clamped,
+      duration: STEP_ANIM_DUR,
+      ease: STEP_EASE,
+      overwrite: true,
+      onUpdate: () => renderAt(smoothObjRef.current.p),
+      onComplete: () => {
+        moveRef.current.active = false;
+      },
     });
-    window.addEventListener("touchmove", onTouchMove, {
-      passive: false,
-      capture: true,
-    });
-
-    return () => {
-      window.removeEventListener("wheel", onWheel, { capture: true });
-      window.removeEventListener("touchstart", onTouchStart, { capture: true });
-      window.removeEventListener("touchmove", onTouchMove, { capture: true });
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
-
-  const lastTimeRef = useRef(0);
-
-  const startRaf = () => {
-    if (rafRef.current) return;
-
-    lastTimeRef.current = performance.now();
-
-    const tick = (now) => {
-      rafRef.current = requestAnimationFrame(tick);
-
-      const dt = Math.min(
-        Math.max((now - lastTimeRef.current) / 1000, 0),
-        0.05
-      );
-      lastTimeRef.current = now;
-
-      const current = smoothObjRef.current.p;
-
-      const maxIndex = Math.max(displaySteps.length - 1, 1);
-      const seg = 1 / maxIndex;
-
-      if (!stepLockRef.current.init) {
-        const initIdx = Math.round(clamp01(current) * maxIndex);
-        stepLockRef.current.init = true;
-        stepLockRef.current.idx = Math.min(Math.max(initIdx, 0), maxIndex);
-        stepLockRef.current.mode = "approach";
-        stepLockRef.current.cooldownUntil = 0;
-        stepLockRef.current.exitArmed = false;
-        stepLockRef.current.stepArmed = false;
-        stepLockRef.current.stepArmDir = 0;
-        exitArmAccumRef.current = 0;
-
-        edgeHoldRef.current = 0;
-        clearAccums();
-      }
-
-      const lockCenter = stepLockRef.current.idx / maxIndex;
-
-      if (stepLockRef.current.mode === "approach") {
-        const arrived = Math.abs(current - lockCenter) <= seg * ARRIVE_EPS_FRAC;
-        if (arrived) {
-          stepLockRef.current.mode = "locked";
-          stepLockRef.current.exitArmed = false;
-          stepLockRef.current.stepArmed = false;
-          stepLockRef.current.stepArmDir = 0;
-          exitArmAccumRef.current = 0;
-
-          visitedRef.current.add(stepLockRef.current.idx);
-          stepLockRef.current.cooldownUntil = now + ARRIVAL_COOLDOWN_MS;
-
-          clearAccums();
-        }
-      }
-
-      const target = lockCenter;
-
-      const alpha = 1 - Math.exp(-dt / SMOOTH_TIME);
-      const next = clamp01(current + (target - current) * alpha);
-
-      smoothObjRef.current.p = next;
-      renderAt(next);
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
   };
 
   const syncVisual = (pRaw) => {
-    stepLockRef.current.init = false;
-    stepLockRef.current.idx = 0;
-    stepLockRef.current.mode = "approach";
-    stepLockRef.current.cooldownUntil = 0;
-    stepLockRef.current.exitArmed = false;
-    stepLockRef.current.stepArmed = false;
-    stepLockRef.current.stepArmDir = 0;
-    exitArmAccumRef.current = 0;
-
-    edgeHoldRef.current = 0;
-    clearAccums();
-
-    const pFinal = computeHeldP(pRaw);
+    const pHeld = computeHeldP(pRaw);
+    smoothObjRef.current.p = pHeld;
+    renderAt(pHeld);
 
     const maxIndex = Math.max(displaySteps.length - 1, 1);
-    const initIdx = Math.round(pFinal * maxIndex);
-    const center = Math.min(Math.max(initIdx, 0), maxIndex) / maxIndex;
+    const idx = Math.min(Math.max(Math.round(pHeld * maxIndex), 0), maxIndex);
+    lockRef.current.idx = idx;
+    lockRef.current.cooldownUntil = 0;
+    stepIndexRef.current = idx;
+    setStepIndex(idx);
 
-    smoothObjRef.current.p = center;
-    renderAt(center);
+    // reset intent
+    intentRef.current.dir = 0;
+    intentRef.current.amt = 0;
+    intentRef.current.lastNow = performance.now();
   };
 
-  const apply = (pRaw) => {
-    if (!active) return;
+  const applyLocked = (pRaw, now) => {
+    // ✅ if a step tween is running, let it finish (prevents snapping/jitter)
+    if (moveRef.current.active) return;
 
-    const pFinal = computeHeldP(pRaw);
+    const pHeld = computeHeldP(pRaw);
     const maxIndex = Math.max(displaySteps.length - 1, 1);
-    const idx = Math.min(Math.max(Math.round(pFinal * maxIndex), 0), maxIndex);
 
-    stepLockRef.current.init = true;
-    stepLockRef.current.idx = idx;
-    stepLockRef.current.mode = "approach";
-    stepLockRef.current.cooldownUntil = 0;
-    stepLockRef.current.exitArmed = false;
-    stepLockRef.current.stepArmed = false;
-    stepLockRef.current.stepArmDir = 0;
-    exitArmAccumRef.current = 0;
+    const curIdx = lockRef.current.idx;
+    const seg = 1 / maxIndex;
 
-    edgeHoldRef.current = 0;
-    clearAccums();
-    startRaf();
-  };
+    const nextThresh = (curIdx + HYSTERESIS) * seg;
+    const prevThresh = (curIdx - HYSTERESIS) * seg;
 
-  useEffect(() => {
-    // ✅ reset pass-through any time active toggles
-    passThroughRef.current = false;
-
-    if (!active) {
-      setLenisStopped(false);
-      stopRaf();
+    // cooldown prevents rapid flipping
+    if (now < lockRef.current.cooldownUntil) {
+      const target = curIdx / maxIndex;
+      // ✅ don't constantly overwrite unless we need to “finish” settling
+      if (Math.abs(smoothObjRef.current.p - target) > 0.0008) {
+        setSmoothTarget(target);
+      }
       return;
     }
 
-    // ✅ hard lock page scroll while active
-    setLenisStopped(true);
+    // ✅ intent ramp (smooth leaving / prevents instant flip)
+    const last = intentRef.current.lastNow || now;
+    const dtS = Math.min(Math.max((now - last) / 1000, 0), 0.06);
+    intentRef.current.lastNow = now;
 
-    visitedRef.current = new Set();
-    exitRef.current = { inProgress: false, until: 0, dir: 0 };
-    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    let desiredDir = 0;
+    let beyond = 0;
 
-    stepLockRef.current.init = false;
-    stepLockRef.current.idx = 0;
-    stepLockRef.current.mode = "approach";
-    stepLockRef.current.cooldownUntil = 0;
-    stepLockRef.current.exitArmed = false;
-    stepLockRef.current.stepArmed = false;
-    stepLockRef.current.stepArmDir = 0;
-    exitArmAccumRef.current = 0;
+    if (pHeld >= nextThresh && curIdx < maxIndex) {
+      desiredDir = +1;
+      beyond = pHeld - nextThresh;
+    } else if (pHeld <= prevThresh && curIdx > 0) {
+      desiredDir = -1;
+      beyond = prevThresh - pHeld;
+    }
 
-    edgeHoldRef.current = 0;
-    clearAccums();
+    if (desiredDir === 0) {
+      // decay back to 0 intent while staying centered
+      intentRef.current.amt = Math.max(0, intentRef.current.amt - INTENT_DECAY * dtS);
+      intentRef.current.dir = 0;
+
+      setSmoothTarget(curIdx / maxIndex);
+      return;
+    }
+
+    // if user changes direction, reset intent (feels smoother / less twitchy)
+    if (intentRef.current.dir !== desiredDir) {
+      intentRef.current.dir = desiredDir;
+      intentRef.current.amt = INTENT_START; // ✅ instant “less scroll” feel
+    }    
+
+    // normalize how far beyond threshold (in "segment units")
+const beyondNorm = seg > 0 ? beyond / seg : 0;
+
+// ✅ 1) Distance-based commit (fixes “too much scroll” immediately)
+if (beyondNorm >= COMMIT_BEYOND) {
+  const nextIdx = curIdx + desiredDir;
+
+  lockRef.current.idx = nextIdx;
+  lockRef.current.cooldownUntil =
+    now + ARRIVAL_COOLDOWN_MS + STEP_ANIM_DUR * 1000;
+
+  stepIndexRef.current = nextIdx;
+  setStepIndex(nextIdx);
+
+  // reset intent after commit
+  intentRef.current.amt = 0;
+  intentRef.current.dir = 0;
+
+  startStepTween(nextIdx / maxIndex);
+  return;
+}
+
+// ✅ 2) Otherwise, still allow gentle “intent ramp”
+intentRef.current.amt = Math.min(
+  1,
+  intentRef.current.amt + (0.35 + beyondNorm) * INTENT_GAIN * dtS
+);
+
+if (intentRef.current.amt >= 1) {
+  const nextIdx = curIdx + desiredDir;
+
+  lockRef.current.idx = nextIdx;
+  lockRef.current.cooldownUntil =
+    now + ARRIVAL_COOLDOWN_MS + STEP_ANIM_DUR * 1000;
+
+  stepIndexRef.current = nextIdx;
+  setStepIndex(nextIdx);
+
+  intentRef.current.amt = 0;
+  intentRef.current.dir = 0;
+
+  startStepTween(nextIdx / maxIndex);
+  return;
+}
+
+
+    // while building intent, keep gently pulled to current center
+    setSmoothTarget(curIdx / maxIndex);
+  };
+
+  useEffect(() => {
+    if (!active) return;
 
     const current = clamp01(mv.get?.() ?? 0);
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
-
-    // ✅ IMPORTANT FIX:
-    // If user is coming from BELOW (scrolling upward into regen hold),
-    // allow immediate edge exit (don’t force them to re-visit all cards).
-    if (enteringFromBelow) {
-      fillVisitedAll();
-    }
 
     if (enteringFromBelow) {
       activeStartRef.current = 0;
     } else if (current <= ENTRY_REBASE_MAX) {
       activeStartRef.current = current;
+      lockRef.current.idx = 0;
+      lockRef.current.cooldownUntil = 0;
 
-      smoothObjRef.current.p = 0;
+      moveRef.current.active = false;
+      gsap.killTweensOf(smoothObjRef.current);
+
+      setSmoothTarget(0);
       stepIndexRef.current = 0;
       setStepIndex(0);
       renderAt(0);
@@ -832,17 +484,38 @@ export default function RegenerationTimelineExternal({
       activeStartRef.current = 0;
     }
 
-    apply(current);
+    const pHeld = computeHeldP(current);
+    const maxIndex = Math.max(displaySteps.length - 1, 1);
+    const idx = Math.min(Math.max(Math.round(pHeld * maxIndex), 0), maxIndex);
+
+    lockRef.current.idx = idx;
+    lockRef.current.cooldownUntil = performance.now() + 40;
+
+    stepIndexRef.current = idx;
+    setStepIndex(idx);
+
+    moveRef.current.active = false;
+    gsap.killTweensOf(smoothObjRef.current);
+
+    // reset intent
+    intentRef.current.dir = 0;
+    intentRef.current.amt = 0;
+    intentRef.current.lastNow = performance.now();
+
+    // settle to current card smoothly
+    setSmoothTarget(idx / maxIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, displaySteps.length]);
 
-  // ----------------- layout: compute totalScroll -----------------
   useLayoutEffect(() => {
     const track = trackRef.current;
     if (!track) return;
 
     const compute = () => {
-      totalScrollRef.current = Math.max(track.scrollWidth - window.innerWidth, 0);
+      totalScrollRef.current = Math.max(
+        track.scrollWidth - window.innerWidth,
+        0
+      );
       renderAt(smoothObjRef.current.p);
     };
 
@@ -850,25 +523,32 @@ export default function RegenerationTimelineExternal({
     window.addEventListener("resize", compute);
     window.addEventListener("orientationchange", compute);
 
+    // keep quick “settle” (not used for the big step slide)
+    quickToRef.current = gsap.quickTo(smoothObjRef.current, "p", {
+      duration: SMOOTH_DUR,
+      ease: "power2.out",
+      overwrite: true,
+      onUpdate: () => renderAt(smoothObjRef.current.p),
+    });
+
     return () => {
       window.removeEventListener("resize", compute);
       window.removeEventListener("orientationchange", compute);
+      quickToRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displaySteps.length]);
 
-  // ✅ INITIAL mount sync
   useLayoutEffect(() => {
     const current = clamp01(mv.get?.() ?? 0);
     syncVisual(current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displaySteps.length]);
 
-  // ✅ When active, IGNORE mv changes completely
   useMotionValueEvent(mv, "change", (v) => {
-    if (!active) {
-      syncVisual(v);
-    }
+    const now = performance.now();
+    if (active) applyLocked(v, now);
+    else syncVisual(v);
   });
 
   // ----------------- ✅ AUDIO (UNCHANGED) -----------------
