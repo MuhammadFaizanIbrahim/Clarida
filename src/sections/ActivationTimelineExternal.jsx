@@ -93,64 +93,20 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
 
   // ✅ entry behavior
   const activeStartRef = useRef(0);
-  const ENTRY_REBASE_MAX = 0.35; // bigger = more delay/hold on entry
+  const ENTRY_REBASE_MAX = 0.35;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
-  // ✅ NEW: reverse-exit safety so you don't leave from Dose Two on fast back-scroll
-  const prevIncomingRef = useRef(0);
-  const EXIT_SNAP_MAX = 0.30; // tweak: range near start where reverse scroll forces Dose One
+  // ✅ Hold at start/end so arc transition can finish before timeline starts moving
+  const START_HOLD_P = 0.20; // 10% hold at start
+  const END_HOLD_P = 0.15;   // 10% hold at end
 
-  const resetToStart = () => {
-    const track = trackRef.current;
-    if (track) gsap.set(track, { x: 0 });
+  // ✅ smooth internal progress (prevents teleport on parent progress jumps)
+  const smoothObjRef = useRef({ p: 0 });
+  const quickToRef = useRef(null);
 
-    bgRefs.current.forEach((el, idx) => {
-      if (!el) return;
-      gsap.set(el, { opacity: idx === 0 ? 1 : 0 });
-    });
-
-    cardRefs.current.forEach((el, idx) => {
-      if (!el) return;
-      gsap.set(el, { opacity: idx === 0 ? 1 : 0 });
-    });
-
-    if (circleRef.current) gsap.set(circleRef.current, { rotate: 0 });
-
-    markerRefs.current.forEach((el, idx) => {
-      if (!el) return;
-      gsap.set(el, { opacity: idx === 0 ? 1 : 0.15 });
-    });
-
-    stepIndexRef.current = 0;
-    setStepIndex(0);
-    lastPRef.current = 0;
-  };
-
-  const apply = (pRaw) => {
-    if (!active) return;
-
-    const pIncoming = clamp01(pRaw);
-
-    // ✅ NEW: detect reverse scroll and force start pose near the top of this section
-    const prev = prevIncomingRef.current;
-    const goingBack = pIncoming < prev - 0.0005;
-    prevIncomingRef.current = pIncoming;
-
-    const startAt = activeStartRef.current || 0;
-    const denom = 1 - startAt;
-
-    // default mapping (rebased)
-    let p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
-
-    // ✅ if user is reverse-scrolling and we're in the early zone, clamp to Dose One
-    if (goingBack && pIncoming <= EXIT_SNAP_MAX) {
-      p = 0;
-    }
-
+  const renderAt = (p) => {
     const track = trackRef.current;
     if (!track) return;
-
-    lastPRef.current = p;
 
     const totalScroll = totalScrollRef.current;
     const x = -totalScroll * p;
@@ -198,7 +154,6 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
       gsap.set(el, { opacity });
     });
 
-    // circle rotation + marker opacity (unchanged logic)
     const anglePerStep = 360 / timelineSteps.length;
     const rotation = -indexFloat * anglePerStep;
     if (circleRef.current) gsap.set(circleRef.current, { rotate: rotation });
@@ -219,13 +174,64 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
     });
   };
 
-  // ✅ on activate: choose rebase mode (fix reverse re-entry)
+  const setSmoothTarget = (pTarget) => {
+    const clamped = clamp01(pTarget);
+    lastPRef.current = clamped;
+
+    if (quickToRef.current) {
+      quickToRef.current(clamped);
+    } else {
+      smoothObjRef.current.p = clamped;
+      renderAt(clamped);
+    }
+  };
+
+  const resetToStart = () => {
+    smoothObjRef.current.p = 0;
+    setSmoothTarget(0);
+
+    stepIndexRef.current = 0;
+    setStepIndex(0);
+  };
+
+  // ✅ NEW: shared held-progress computation (same logic as before)
+  const computeHeldP = (pRaw) => {
+    const pIncoming = clamp01(pRaw);
+
+    const startAt = activeStartRef.current || 0;
+    const denom = 1 - startAt;
+    const p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
+
+    const denomHold = 1 - START_HOLD_P - END_HOLD_P;
+    let pHeld = p;
+
+    if (denomHold > 0) {
+      if (pHeld <= START_HOLD_P) pHeld = 0;
+      else if (pHeld >= 1 - END_HOLD_P) pHeld = 1;
+      else pHeld = (pHeld - START_HOLD_P) / denomHold;
+    }
+
+    return pHeld;
+  };
+
+  // ✅ NEW: hard sync visuals even when NOT active (prevents "Dose One" flash)
+  const syncVisual = (pRaw) => {
+    const pHeld = computeHeldP(pRaw);
+    smoothObjRef.current.p = pHeld;
+    lastPRef.current = pHeld;
+    renderAt(pHeld);
+  };
+
+  const apply = (pRaw) => {
+    if (!active) return;
+    setSmoothTarget(computeHeldP(pRaw));
+  };
+
+  // ✅ on activate: choose rebase mode
   useEffect(() => {
     if (!active) return;
 
     const current = clamp01(mv.get?.() ?? 0);
-    prevIncomingRef.current = current; // keep direction detection stable on entry
-
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
 
     if (enteringFromBelow) {
@@ -247,21 +253,41 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
 
     const compute = () => {
       totalScrollRef.current = Math.max(track.scrollWidth - window.innerWidth, 0);
-      apply(lastPRef.current);
+      renderAt(smoothObjRef.current.p);
     };
 
     compute();
     window.addEventListener("resize", compute);
     window.addEventListener("orientationchange", compute);
 
+    // smooth driver (critical)
+    quickToRef.current = gsap.quickTo(smoothObjRef.current, "p", {
+      duration: 0.18,
+      ease: "power2.out",
+      overwrite: true,
+      onUpdate: () => renderAt(smoothObjRef.current.p),
+    });
+
     return () => {
       window.removeEventListener("resize", compute);
       window.removeEventListener("orientationchange", compute);
+      quickToRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useMotionValueEvent(mv, "change", (v) => apply(v));
+  // ✅ INITIAL mount sync (first paint aligns to real progress)
+  useLayoutEffect(() => {
+    const current = clamp01(mv.get?.() ?? 0);
+    syncVisual(current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ IMPORTANT CHANGE: when inactive, keep visuals synced (no "Dose One" flash)
+  useMotionValueEvent(mv, "change", (v) => {
+    if (active) apply(v);
+    else syncVisual(v);
+  });
 
   const stepsCount = timelineSteps.length;
   const trackWidthVW = stepsCount * 100;

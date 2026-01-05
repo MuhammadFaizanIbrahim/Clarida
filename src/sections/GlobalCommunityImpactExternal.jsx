@@ -3,11 +3,11 @@ import { gsap } from "gsap";
 import { useMotionValue, useMotionValueEvent } from "framer-motion";
 import Button from "../components/Button.jsx";
 
-const TOTAL_FRAMES = 75;
+const TOTAL_FRAMES = 150;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/GlobalCommunityImpactNew/frame_${index}.webp`;
+  return `/frames/GlobalCommunityImpact/frame_${index}.webp`;
 });
 
 const FIRST_FRAME_SRC = framePaths[0];
@@ -277,8 +277,9 @@ export default function GlobalCommunityImpactExternal({ progress = 0, active = t
 
           <Button
             extra="gap-2 mt-5 lg:mt-10 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
-            onClick={() => setIsOpen((prev) => !prev)}
-          >
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+            }}          >
             Join The Clarida Network
             <img src="icons/arrowIcon.svg" alt="Clarida Text" className="rotate-270" />
           </Button>

@@ -7,7 +7,7 @@ import EntranceAnimation, { itemVariants } from "../components/EntranceAnimation
 const testimonialsData = [
   {
     name: "Steve",
-    image: "images/testimonialsBG/Steve.png",
+    image: "images/testimonialsBG/SteveNew.jpg",
     mob_image: "images/testimonialsBG/Steve-mob.png",
     quoteStart: "I felt like",
     highlight: [
@@ -22,7 +22,7 @@ const testimonialsData = [
   },
   {
     name: "Carmen",
-    image: "images/testimonialsBG/Carmen.png",
+    image: "images/testimonialsBG/CarmenNew.jpg",
     mob_image: "images/testimonialsBG/Carmen-mob.png",
     quoteStart: "The first thing I saw",
     highlight: [
@@ -37,7 +37,7 @@ const testimonialsData = [
   },
   {
     name: "Leon",
-    image: "images/testimonialsBG/Leon.png",
+    image: "images/testimonialsBG/LeonNew.jpg",
     mob_image: "images/testimonialsBG/Leon-mob.png",
     quoteStart: "Quiet progress day",
     highlight: [
@@ -52,7 +52,7 @@ const testimonialsData = [
   },
   {
     name: "Theresa",
-    image: "images/testimonialsBG/Theresa.png",
+    image: "images/testimonialsBG/TheresaNew.jpg",
     mob_image: "images/testimonialsBG/Theresa-mob.png",
     quoteStart: "Autumn hit me",
     highlight: [
@@ -67,7 +67,7 @@ const testimonialsData = [
   },
   {
     name: "David",
-    image: "images/testimonialsBG/David.png",
+    image: "images/testimonialsBG/DavidNew.jpg",
     mob_image: "images/testimonialsBG/David-mob.png",
     quoteStart: "I didn’t think it",
     highlight: [
@@ -82,7 +82,7 @@ const testimonialsData = [
   },
   {
     name: "Mei",
-    image: "images/testimonialsBG/Mei.png",
+    image: "images/testimonialsBG/MeiNew.jpg",
     mob_image: "images/testimonialsBG/Mei-mob.png",
     quoteStart: "I finished two books",
     highlight: [
@@ -327,11 +327,11 @@ const Testimonials = () => {
       ref={sectionRef}
       className="relative z-10 w-full h-screen lg:h-full overflow-hidden flex flex-col-reverse md:flex-row 
     items-center justify-between px-8 py-15 md:px-20 md:py-20 lg:px-[7.813vw] lg:py-[6.5vw]"
-      style={{
-        backgroundImage: hasVideo
-          ? "none"
-          : `url(${isMobile ? t.mob_image : t.image})`,
-      }}
+      // style={{
+      //   backgroundImage: hasVideo
+      //     ? "none"
+      //     : `url(${isMobile ? t.mob_image : t.image})`,
+      // }}
     >
       <AnimatePresence mode="wait">
         {!hasVideo && (
@@ -467,6 +467,9 @@ const Testimonials = () => {
         >
           <Button
             extra="gap-2 mt-5 lg:mt-9 lg:gap-4 lg:py-[12px] lg:px-[12px] whitespace-nowrap"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+            }}
           >
             Join The Vision Revolution
             <img

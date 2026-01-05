@@ -1,5 +1,12 @@
 // src/transitions/HomepageSectionBySectionScroll.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+} from "react";
 import {
   motion,
   useReducedMotion,
@@ -8,18 +15,34 @@ import {
   useMotionValueEvent,
 } from "framer-motion";
 
+import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
+
 import Hero from "../sections/Hero";
-import Testimonials from "../sections/Testimonials";
 import CurveDivider from "../components/CurveDivider";
 
-import InteractiveRegenerationExternal from "../sections/InteractiveRegenerationExternal";
-import ClaridaDifferenceExternal from "../sections/ClaridaDifferenceExternal";
+// ✅ Lazy-load heavy sections so they don't load until needed
+const Testimonials = lazy(() => import("../sections/Testimonials"));
 
-import RegenerationTimelineExternal from "../sections/RegenerationTimelineExternal";
-import ActivationTimelineExternal from "../sections/ActivationTimelineExternal";
-import VisionaryGuaranteeExternal from "../sections/VisionaryGuaranteeExternal";
-import GlobalCommunityImpactExternal from "../sections/GlobalCommunityImpactExternal";
-import Footer from "../sections/Footer";
+const InteractiveRegenerationExternal = lazy(() =>
+  import("../sections/InteractiveRegenerationExternal")
+);
+const ClaridaDifferenceExternal = lazy(() =>
+  import("../sections/ClaridaDifferenceExternal")
+);
+
+const RegenerationTimelineExternal = lazy(() =>
+  import("../sections/RegenerationTimelineExternal")
+);
+const ActivationTimelineExternal = lazy(() =>
+  import("../sections/ActivationTimelineExternal")
+);
+const VisionaryGuaranteeExternal = lazy(() =>
+  import("../sections/VisionaryGuaranteeExternal")
+);
+const GlobalCommunityImpactExternal = lazy(() =>
+  import("../sections/GlobalCommunityImpactExternal")
+);
+const Footer = lazy(() => import("../sections/Footer"));
 
 function TransitionArc({ t }) {
   const prefersReducedMotion = useReducedMotion();
@@ -44,6 +67,8 @@ function TransitionArc({ t }) {
 }
 
 export default function HomepageSectionBySectionScroll() {
+  useLenisSmoothScroll();
+
   const sectionRef = useRef(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -53,7 +78,7 @@ export default function HomepageSectionBySectionScroll() {
       HERO_HOLD: 25,
       HERO_TO_INTER: 75,
 
-      INTER_HOLD: 420,
+      INTER_HOLD: 550,
       INTER_TO_TEST: 75,
 
       TEST_HOLD: 45,
@@ -62,13 +87,13 @@ export default function HomepageSectionBySectionScroll() {
       DIFF_HOLD: 220,
       DIFF_TO_REGEN: 75,
 
-      REGEN_HOLD: 460,
+      REGEN_HOLD: 550,
       REGEN_TO_ACT: 75,
 
-      ACT_HOLD: 340,
+      ACT_HOLD: 420,
       ACT_TO_GUAR: 75,
 
-      GUAR_HOLD: 340,
+      GUAR_HOLD: 570,
       GUAR_TO_IMPACT: 75,
 
       IMPACT_HOLD: 240,
@@ -150,8 +175,20 @@ export default function HomepageSectionBySectionScroll() {
     pinMode === "pinned"
       ? { position: "fixed", top: 0, left: 0, width: "100%", height: "100vh" }
       : pinMode === "after"
-      ? { position: "absolute", left: 0, bottom: 0, width: "100%", height: "100vh" }
-      : { position: "absolute", top: 0, left: 0, width: "100%", height: "100vh" };
+      ? {
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          width: "100%",
+          height: "100vh",
+        }
+      : {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100vh",
+        };
 
   // bounds
   const bounds = useMemo(() => {
@@ -206,142 +243,513 @@ export default function HomepageSectionBySectionScroll() {
   // transitions
   const heroToInterT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.HERO_TO_INTER.start, bounds.HERO_TO_INTER.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.HERO_TO_INTER.start, bounds.HERO_TO_INTER.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const interToTestT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.INTER_TO_TEST.start, bounds.INTER_TO_TEST.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.INTER_TO_TEST.start, bounds.INTER_TO_TEST.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const testToDiffT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.TEST_TO_DIFF.start, bounds.TEST_TO_DIFF.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.TEST_TO_DIFF.start, bounds.TEST_TO_DIFF.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const diffToRegenT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.DIFF_TO_REGEN.start, bounds.DIFF_TO_REGEN.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.DIFF_TO_REGEN.start, bounds.DIFF_TO_REGEN.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const regenToActT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.REGEN_TO_ACT.start, bounds.REGEN_TO_ACT.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.REGEN_TO_ACT.start, bounds.REGEN_TO_ACT.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const actToGuarT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.ACT_TO_GUAR.start, bounds.ACT_TO_GUAR.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.ACT_TO_GUAR.start, bounds.ACT_TO_GUAR.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const guarToImpactT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.GUAR_TO_IMPACT.start, bounds.GUAR_TO_IMPACT.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.GUAR_TO_IMPACT.start, bounds.GUAR_TO_IMPACT.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const impactToFooterT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.IMPACT_TO_FOOTER.start, bounds.IMPACT_TO_FOOTER.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.IMPACT_TO_FOOTER.start, bounds.IMPACT_TO_FOOTER.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   // progress for scrubbed sections
   const interProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.HERO_TO_INTER.start, bounds.INTER_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.HERO_TO_INTER.start, bounds.INTER_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const diffProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.TEST_TO_DIFF.start, bounds.DIFF_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.TEST_TO_DIFF.start, bounds.DIFF_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const regenProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.DIFF_TO_REGEN.start, bounds.REGEN_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.DIFF_TO_REGEN.start, bounds.REGEN_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const actProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.REGEN_TO_ACT.start, bounds.ACT_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.REGEN_TO_ACT.start, bounds.ACT_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const guarProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.ACT_TO_GUAR.start, bounds.GUAR_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.ACT_TO_GUAR.start, bounds.GUAR_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const impactProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.GUAR_TO_IMPACT.start, bounds.IMPACT_HOLD.end], [0, 1], { clamp: true });
+    : useTransform(
+        scrollYProgress,
+        [bounds.GUAR_TO_IMPACT.start, bounds.IMPACT_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   // opacity envelopes
-  const heroOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.HERO_HOLD.start, bounds.HERO_HOLD.end, bounds.HERO_TO_INTER.end], [1, 1, 0], { clamp: true });
+  const heroOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [bounds.HERO_HOLD.start, bounds.HERO_HOLD.end, bounds.HERO_TO_INTER.end],
+        [1, 1, 0],
+        { clamp: true }
+      );
 
-  const interOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.HERO_TO_INTER.start, bounds.HERO_TO_INTER.end, bounds.INTER_HOLD.end, bounds.INTER_TO_TEST.end], [0, 1, 1, 0], { clamp: true });
+  const interOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.HERO_TO_INTER.start,
+          bounds.HERO_TO_INTER.end,
+          bounds.INTER_HOLD.end,
+          bounds.INTER_TO_TEST.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const testOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.INTER_TO_TEST.start, bounds.INTER_TO_TEST.end, bounds.TEST_HOLD.end, bounds.TEST_TO_DIFF.end], [0, 1, 1, 0], { clamp: true });
+  const testOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.INTER_TO_TEST.start,
+          bounds.INTER_TO_TEST.end,
+          bounds.TEST_HOLD.end,
+          bounds.TEST_TO_DIFF.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const diffOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.TEST_TO_DIFF.start, bounds.TEST_TO_DIFF.end, bounds.DIFF_HOLD.end, bounds.DIFF_TO_REGEN.end], [0, 1, 1, 0], { clamp: true });
+  const diffOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.TEST_TO_DIFF.start,
+          bounds.TEST_TO_DIFF.end,
+          bounds.DIFF_HOLD.end,
+          bounds.DIFF_TO_REGEN.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const regenOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.DIFF_TO_REGEN.start, bounds.DIFF_TO_REGEN.end, bounds.REGEN_HOLD.end, bounds.REGEN_TO_ACT.end], [0, 1, 1, 0], { clamp: true });
+  const regenOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.DIFF_TO_REGEN.start,
+          bounds.DIFF_TO_REGEN.end,
+          bounds.REGEN_HOLD.end,
+          bounds.REGEN_TO_ACT.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const actOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.REGEN_TO_ACT.start, bounds.REGEN_TO_ACT.end, bounds.ACT_HOLD.end, bounds.ACT_TO_GUAR.end], [0, 1, 1, 0], { clamp: true });
+  const actOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.REGEN_TO_ACT.start,
+          bounds.REGEN_TO_ACT.end,
+          bounds.ACT_HOLD.end,
+          bounds.ACT_TO_GUAR.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const guarOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.ACT_TO_GUAR.start, bounds.ACT_TO_GUAR.end, bounds.GUAR_HOLD.end, bounds.GUAR_TO_IMPACT.end], [0, 1, 1, 0], { clamp: true });
+  const guarOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.ACT_TO_GUAR.start,
+          bounds.ACT_TO_GUAR.end,
+          bounds.GUAR_HOLD.end,
+          bounds.GUAR_TO_IMPACT.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const impactOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.GUAR_TO_IMPACT.start, bounds.GUAR_TO_IMPACT.end, bounds.IMPACT_HOLD.end, bounds.IMPACT_TO_FOOTER.end], [0, 1, 1, 0], { clamp: true });
+  const impactOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.GUAR_TO_IMPACT.start,
+          bounds.GUAR_TO_IMPACT.end,
+          bounds.IMPACT_HOLD.end,
+          bounds.IMPACT_TO_FOOTER.end,
+        ],
+        [0, 1, 1, 0],
+        { clamp: true }
+      );
 
-  const footerOpacity = prefersReducedMotion ? 1 :
-    useTransform(scrollYProgress, [bounds.IMPACT_TO_FOOTER.start, bounds.IMPACT_TO_FOOTER.end, bounds.FOOTER_HOLD.end], [0, 1, 1], { clamp: true });
+  const footerOpacity = prefersReducedMotion
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.IMPACT_TO_FOOTER.start,
+          bounds.IMPACT_TO_FOOTER.end,
+          bounds.FOOTER_HOLD.end,
+        ],
+        [0, 1, 1],
+        { clamp: true }
+      );
+
+  // ✅ Keep exactly 2 mounted based on progress region (no direction needed)
+  const [renderPair, setRenderPair] = useState([0, 1]);
+  const renderPairRef = useRef([0, 1]);
+
+  // ✅ NEW: keep already-mounted sections mounted forever
+  const [mountedSet, setMountedSet] = useState(() => new Set([0, 1]));
+  const mountedSetRef = useRef(new Set([0, 1]));
+  const addMounted = (a, b) => {
+    setMountedSet((prev) => {
+      const next = new Set(prev);
+      next.add(a);
+      next.add(b);
+      mountedSetRef.current = next;
+      return next;
+    });
+  };
+
+  // ✅ NEW: jump-to-footer lock (prevents renderPair from changing during the jump animation)
+  const jumpingRef = useRef(false);
+  const jumpTimeoutRef = useRef(null);
+
+  // ✅ NEW: listen for header button event, jump to last transition and play arc into footer
+  useEffect(() => {
+    const scrollToY = (y, opts) => {
+      if (window.lenis && typeof window.lenis.scrollTo === "function") {
+        window.lenis.scrollTo(y, opts);
+      } else {
+        window.scrollTo({
+          top: y,
+          left: 0,
+          behavior: opts?.immediate ? "auto" : "smooth",
+        });
+      }
+    };
+
+    const onJumpFooter = () => {
+      const { start, end } = range;
+      if (!start && !end) return;
+
+      const dist = end - start;
+
+      // force last pair mounted so we don't flash other sections
+      jumpingRef.current = true;
+      const lastPair = [7, 8];
+      renderPairRef.current = lastPair;
+      setRenderPair(lastPair);
+
+      // ✅ NEW: also keep them mounted permanently
+      addMounted(7, 8);
+
+      // ✅ IMPORTANT:
+      // Start a tiny bit BEFORE the transition (still on Impact),
+      // then animate to a bit AFTER the transition (inside Footer hold).
+      const eps = 0.001; // small normalized offset to avoid boundary equality issues
+
+      const pStart = Math.max(0, bounds.IMPACT_TO_FOOTER.start - eps);
+      const pEnd = Math.min(1, bounds.IMPACT_TO_FOOTER.end + 0.06); // go INTO footer hold
+
+      const yStart = start + pStart * dist;
+      const yEnd = Math.min(end - 2, start + pEnd * dist); // clamp inside range
+
+      scrollToY(yStart, { immediate: true });
+
+      requestAnimationFrame(() => {
+        scrollToY(yEnd, { duration: 1.2 });
+
+        if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+        jumpTimeoutRef.current = setTimeout(() => {
+          jumpingRef.current = false;
+        }, 1600);
+      });
+    };
+
+    window.addEventListener("clarida-jump-footer", onJumpFooter);
+    return () => {
+      window.removeEventListener("clarida-jump-footer", onJumpFooter);
+      if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+    };
+  }, [range, bounds]);
 
   // pointer events
   const [activeIndex, setActiveIndex] = useState(0);
+
   useMotionValueEvent(scrollYProgress, "change", (p) => {
-    if (p < bounds.HERO_TO_INTER.end) setActiveIndex(0);
-    else if (p < bounds.INTER_TO_TEST.end) setActiveIndex(1);
-    else if (p < bounds.TEST_TO_DIFF.end) setActiveIndex(2);
-    else if (p < bounds.DIFF_TO_REGEN.end) setActiveIndex(3);
-    else if (p < bounds.REGEN_TO_ACT.end) setActiveIndex(4);
-    else if (p < bounds.ACT_TO_GUAR.end) setActiveIndex(5);
-    else if (p < bounds.GUAR_TO_IMPACT.end) setActiveIndex(6);
-    else if (p < bounds.IMPACT_TO_FOOTER.end) setActiveIndex(7);
+    // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
+    if (p < bounds.HERO_TO_INTER.start) setActiveIndex(0);
+    else if (p < bounds.INTER_TO_TEST.start) setActiveIndex(1);
+    else if (p < bounds.TEST_TO_DIFF.start) setActiveIndex(2);
+    else if (p < bounds.DIFF_TO_REGEN.start) setActiveIndex(3);
+    else if (p < bounds.REGEN_TO_ACT.start) setActiveIndex(4);
+    else if (p < bounds.ACT_TO_GUAR.start) setActiveIndex(5);
+    else if (p < bounds.GUAR_TO_IMPACT.start) setActiveIndex(6);
+    else if (p < bounds.IMPACT_TO_FOOTER.start) setActiveIndex(7);
     else setActiveIndex(8);
+
+    // ✅ during jump: do NOT overwrite forced lastPair
+    if (jumpingRef.current) return;
+
+    let nextPair;
+    if (p < bounds.HERO_TO_INTER.end) nextPair = [0, 1];
+    else if (p < bounds.INTER_TO_TEST.end) nextPair = [1, 2];
+    else if (p < bounds.TEST_TO_DIFF.end) nextPair = [2, 3];
+    else if (p < bounds.DIFF_TO_REGEN.end) nextPair = [3, 4];
+    else if (p < bounds.REGEN_TO_ACT.end) nextPair = [4, 5];
+    else if (p < bounds.ACT_TO_GUAR.end) nextPair = [5, 6];
+    else if (p < bounds.GUAR_TO_IMPACT.end) nextPair = [6, 7];
+    else if (p < bounds.IMPACT_TO_FOOTER.end) nextPair = [7, 8];
+    else nextPair = [8, 7];
+
+    // ✅ NEW: once a section is mounted, never unmount it
+    addMounted(nextPair[0], nextPair[1]);
+
+    const prevPair = renderPairRef.current;
+    if (prevPair[0] !== nextPair[0] || prevPair[1] !== nextPair[1]) {
+      renderPairRef.current = nextPair;
+      setRenderPair(nextPair);
+    }
   });
 
+  // ✅ NEW: render if it has ever been mounted
+  const shouldRender = (i) => mountedSet.has(i);
+
   return (
-    <section ref={sectionRef} className="relative isolate bg-black" style={{ height: `${TOTAL_VH}vh` }}>
+    <section
+      ref={sectionRef}
+      className="relative isolate bg-black"
+      style={{ height: `${TOTAL_VH}vh` }}
+    >
       <div style={viewportStyle} className="overflow-hidden bg-black">
+        {shouldRender(0) && (
+          <motion.div
+            style={{
+              opacity: heroOpacity,
+              pointerEvents: activeIndex === 0 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-10"
+          >
+            <Hero active={activeIndex === 0} />
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: heroOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }} className="absolute inset-0 z-10">
-        <Hero active={activeIndex === 0} />
-        </motion.div>
+        {shouldRender(1) && (
+          <motion.div
+            style={{
+              opacity: interOpacity,
+              pointerEvents: activeIndex === 1 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-20"
+          >
+            <Suspense fallback={null}>
+              <InteractiveRegenerationExternal
+                progress={interProgress}
+                active={activeIndex === 1}
+              />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: interOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }} className="absolute inset-0 z-20">
-          <InteractiveRegenerationExternal progress={interProgress} active={activeIndex === 1} />
-        </motion.div>
+        {shouldRender(2) && (
+          <motion.div
+            style={{
+              opacity: testOpacity,
+              pointerEvents: activeIndex === 2 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-30"
+          >
+            <Suspense fallback={null}>
+              <Testimonials />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: testOpacity, pointerEvents: activeIndex === 2 ? "auto" : "none" }} className="absolute inset-0 z-30">
-          <Testimonials />
-        </motion.div>
+        {shouldRender(3) && (
+          <motion.div
+            style={{
+              opacity: diffOpacity,
+              pointerEvents: activeIndex === 3 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-40"
+          >
+            <Suspense fallback={null}>
+              <ClaridaDifferenceExternal progress={diffProgress} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: diffOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none" }} className="absolute inset-0 z-40">
-          <ClaridaDifferenceExternal progress={diffProgress} />
-        </motion.div>
+        {shouldRender(4) && (
+          <motion.div
+            style={{
+              opacity: regenOpacity,
+              pointerEvents: activeIndex === 4 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-[45]"
+          >
+            <Suspense fallback={null}>
+              <RegenerationTimelineExternal
+                progress={regenProgress}
+                active={activeIndex === 4}
+              />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: regenOpacity, pointerEvents: activeIndex === 4 ? "auto" : "none" }} className="absolute inset-0 z-[45]">
-          <RegenerationTimelineExternal progress={regenProgress} active={activeIndex === 4} />
-        </motion.div>
+        {shouldRender(5) && (
+          <motion.div
+            style={{
+              opacity: actOpacity,
+              pointerEvents: activeIndex === 5 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-[46]"
+          >
+            <Suspense fallback={null}>
+              <ActivationTimelineExternal
+                progress={actProgress}
+                active={activeIndex === 5}
+              />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: actOpacity, pointerEvents: activeIndex === 5 ? "auto" : "none" }} className="absolute inset-0 z-[46]">
-        <ActivationTimelineExternal progress={actProgress} active={activeIndex === 5} />
-        </motion.div>
+        {shouldRender(6) && (
+          <motion.div
+            style={{
+              opacity: guarOpacity,
+              pointerEvents: activeIndex === 6 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-[47]"
+          >
+            <Suspense fallback={null}>
+              <VisionaryGuaranteeExternal progress={guarProgress} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: guarOpacity, pointerEvents: activeIndex === 6 ? "auto" : "none" }} className="absolute inset-0 z-[47]">
-          <VisionaryGuaranteeExternal progress={guarProgress} />
-        </motion.div>
+        {shouldRender(7) && (
+          <motion.div
+            style={{
+              opacity: impactOpacity,
+              pointerEvents: activeIndex === 7 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-[48]"
+          >
+            <Suspense fallback={null}>
+              <GlobalCommunityImpactExternal progress={impactProgress} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        <motion.div style={{ opacity: impactOpacity, pointerEvents: activeIndex === 7 ? "auto" : "none" }} className="absolute inset-0 z-[48]">
-          <GlobalCommunityImpactExternal progress={impactProgress} />
-        </motion.div>
-
-        <motion.div style={{ opacity: footerOpacity, pointerEvents: activeIndex === 8 ? "auto" : "none" }} className="absolute inset-0 z-[49]">
-          <Footer />
-        </motion.div>
+        {shouldRender(8) && (
+          <motion.div
+            style={{
+              opacity: footerOpacity,
+              pointerEvents: activeIndex === 8 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-[49]"
+          >
+            <Suspense fallback={null}>
+              <Footer />
+            </Suspense>
+          </motion.div>
+        )}
 
         <TransitionArc t={heroToInterT} />
         <TransitionArc t={interToTestT} />
@@ -351,7 +759,6 @@ export default function HomepageSectionBySectionScroll() {
         <TransitionArc t={actToGuarT} />
         <TransitionArc t={guarToImpactT} />
         <TransitionArc t={impactToFooterT} />
-
       </div>
     </section>
   );

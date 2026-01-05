@@ -1,5 +1,12 @@
 // src/transitions/SecondPageSectionBySectionScroll.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+} from "react";
 import {
   motion,
   useReducedMotion,
@@ -8,11 +15,18 @@ import {
   useMotionValueEvent,
 } from "framer-motion";
 
+import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
+
 import CurveDivider from "../components/CurveDivider";
 
-import ClaridaScrollStore from "../sections/ClaridaScrollStore";
-import LifestyleVisionExternal from "../sections/LifestyleVisionExternal";
-import Footer from "../sections/Footer";
+// ✅ Lazy-load heavy sections so they don't load until needed
+const ClaridaScrollStore = lazy(() => import("../sections/ClaridaScrollStore"));
+const LifestyleVisionExternal = lazy(() =>
+  import("../sections/LifestyleVisionExternal")
+);
+const Footer = lazy(() => import("../sections/Footer"));
+
+// ✅ FIX: DO NOT lazy-load the first visible section (prevents initial black screen)
 import ScientificInnovationExternal from "../sections/ScientificInnovationExternal";
 
 function TransitionArc({ t }) {
@@ -24,13 +38,14 @@ function TransitionArc({ t }) {
 
   return (
     <motion.div
-      style={{ opacity: arcOpacity, y: arcY }}
+      // ✅ hard force no pointer capture (even if children try to re-enable)
+      style={{ opacity: arcOpacity, y: arcY, pointerEvents: "none" }}
       className="
-        pointer-events-none
         absolute left-1/2 -translate-x-1/2
         bottom-[-5vh] md:bottom-[-6vh] lg:bottom-[-5vh]
-        w-screen z-50
+        w-screen z-30
       "
+      aria-hidden="true"
     >
       <CurveDivider />
     </motion.div>
@@ -38,10 +53,11 @@ function TransitionArc({ t }) {
 }
 
 export default function SecondPageSectionBySectionScroll() {
+  useLenisSmoothScroll();
+
   const sectionRef = useRef(null);
   const prefersReducedMotion = useReducedMotion();
 
-  // 🔧 tweak these like homepage
   const VH = useMemo(
     () => ({
       SCI_HOLD: 25,
@@ -72,7 +88,6 @@ export default function SecondPageSectionBySectionScroll() {
     offset: ["start start", "end start"],
   });
 
-  // fixed pin (same pattern as homepage)
   const [pinMode, setPinMode] = useState("before");
   const [range, setRange] = useState({ start: 0, end: 0 });
 
@@ -119,10 +134,21 @@ export default function SecondPageSectionBySectionScroll() {
     pinMode === "pinned"
       ? { position: "fixed", top: 0, left: 0, width: "100%", height: "100vh" }
       : pinMode === "after"
-      ? { position: "absolute", left: 0, bottom: 0, width: "100%", height: "100vh" }
-      : { position: "absolute", top: 0, left: 0, width: "100%", height: "100vh" };
+      ? {
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          width: "100%",
+          height: "100vh",
+        }
+      : {
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100vh",
+        };
 
-  // bounds
   const bounds = useMemo(() => {
     let acc = 0;
     const toP = (vh) => vh / TOTAL_VH;
@@ -154,18 +180,23 @@ export default function SecondPageSectionBySectionScroll() {
     };
   }, [TOTAL_VH, VH]);
 
-  // transition Ts (for arcs)
   const sciToStoreT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.SCI_TO_STORE.start, bounds.SCI_TO_STORE.end], [0, 1], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.SCI_TO_STORE.start, bounds.SCI_TO_STORE.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const storeToLifeT = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.STORE_TO_LIFE.start, bounds.STORE_TO_LIFE.end], [0, 1], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.STORE_TO_LIFE.start, bounds.STORE_TO_LIFE.end],
+        [0, 1],
+        { clamp: true }
+      );
 
   const lifeToFooterT = prefersReducedMotion
     ? 0
@@ -176,25 +207,34 @@ export default function SecondPageSectionBySectionScroll() {
         { clamp: true }
       );
 
-  // progress for lifestyle scrub
   const lifeProgress = prefersReducedMotion
     ? 0
-    : useTransform(scrollYProgress, [bounds.STORE_TO_LIFE.start, bounds.LIFE_HOLD.end], [0, 1], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.STORE_TO_LIFE.start, bounds.LIFE_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
 
-  // opacity envelopes
   const sciOpacity = prefersReducedMotion
     ? 1
-    : useTransform(scrollYProgress, [bounds.SCI_HOLD.start, bounds.SCI_HOLD.end, bounds.SCI_TO_STORE.end], [1, 1, 0], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [bounds.SCI_HOLD.start, bounds.SCI_HOLD.end, bounds.SCI_TO_STORE.end],
+        [1, 1, 0],
+        { clamp: true }
+      );
 
   const storeOpacity = prefersReducedMotion
     ? 1
     : useTransform(
         scrollYProgress,
-        [bounds.SCI_TO_STORE.start, bounds.SCI_TO_STORE.end, bounds.STORE_HOLD.end, bounds.STORE_TO_LIFE.end],
+        [
+          bounds.SCI_TO_STORE.start,
+          bounds.SCI_TO_STORE.end,
+          bounds.STORE_HOLD.end,
+          bounds.STORE_TO_LIFE.end,
+        ],
         [0, 1, 1, 0],
         { clamp: true }
       );
@@ -203,62 +243,216 @@ export default function SecondPageSectionBySectionScroll() {
     ? 1
     : useTransform(
         scrollYProgress,
-        [bounds.STORE_TO_LIFE.start, bounds.STORE_TO_LIFE.end, bounds.LIFE_HOLD.end, bounds.LIFE_TO_FOOTER.end],
+        [
+          bounds.STORE_TO_LIFE.start,
+          bounds.STORE_TO_LIFE.end,
+          bounds.LIFE_HOLD.end,
+          bounds.LIFE_TO_FOOTER.end,
+        ],
         [0, 1, 1, 0],
         { clamp: true }
       );
 
   const footerOpacity = prefersReducedMotion
     ? 1
-    : useTransform(scrollYProgress, [bounds.LIFE_TO_FOOTER.start, bounds.LIFE_TO_FOOTER.end, bounds.FOOTER_HOLD.end], [0, 1, 1], {
-        clamp: true,
-      });
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.LIFE_TO_FOOTER.start,
+          bounds.LIFE_TO_FOOTER.end,
+          bounds.FOOTER_HOLD.end,
+        ],
+        [0, 1, 1],
+        { clamp: true }
+      );
 
-  // pointer events index
+  // ✅ Keep exactly 2 mounted based on progress region (no direction needed)
+  const [renderPair, setRenderPair] = useState([0, 1]);
+  const renderPairRef = useRef([0, 1]);
+
+  // ✅ NEW: mounted set (once mounted, never unmount)
+  const mountedSetRef = useRef(new Set([0, 1]));
+  const [mountedVersion, setMountedVersion] = useState(0);
+
+  const ensureMounted = (pair) => {
+    let changed = false;
+    for (const i of pair) {
+      if (!mountedSetRef.current.has(i)) {
+        mountedSetRef.current.add(i);
+        changed = true;
+      }
+    }
+    if (changed) setMountedVersion((v) => v + 1);
+  };
+
+  // ✅ NEW: jump-to-footer lock (prevents renderPair from changing during the jump animation)
+  const jumpingRef = useRef(false);
+  const jumpTimeoutRef = useRef(null);
+
+  // ✅ NEW: listen for header button event, jump to last transition and play arc into footer
+  useEffect(() => {
+    const scrollToY = (y, opts) => {
+      if (window.lenis && typeof window.lenis.scrollTo === "function") {
+        window.lenis.scrollTo(y, opts);
+      } else {
+        window.scrollTo({
+          top: y,
+          left: 0,
+          behavior: opts?.immediate ? "auto" : "smooth",
+        });
+      }
+    };
+
+    const onJumpFooter = () => {
+      const { start, end } = range;
+      if (!start && !end) return;
+
+      const dist = end - start;
+
+      // force last pair mounted so we don't flash other sections
+      jumpingRef.current = true;
+      const lastPair = [2, 3];
+      renderPairRef.current = lastPair;
+      setRenderPair(lastPair);
+
+      // ✅ also ensure they're permanently mounted
+      ensureMounted(lastPair);
+
+      // Start a tiny bit BEFORE the transition (still on Life),
+      // then animate to a bit AFTER the transition (inside Footer hold).
+      const eps = 0.001;
+
+      const pStart = Math.max(0, bounds.LIFE_TO_FOOTER.start - eps);
+      const pEnd = Math.min(1, bounds.LIFE_TO_FOOTER.end + 0.14); // go INTO footer hold
+
+      const yStart = start + pStart * dist;
+      const yEnd = Math.min(end - 2, start + pEnd * dist);
+
+      scrollToY(yStart, { immediate: true });
+
+      requestAnimationFrame(() => {
+        scrollToY(yEnd, { duration: 1.2 });
+
+        if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+        jumpTimeoutRef.current = setTimeout(() => {
+          jumpingRef.current = false;
+        }, 1600);
+      });
+    };
+
+    window.addEventListener("clarida-jump-footer", onJumpFooter);
+    return () => {
+      window.removeEventListener("clarida-jump-footer", onJumpFooter);
+      if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range, bounds]);
+
+  // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
   const [activeIndex, setActiveIndex] = useState(0);
   useMotionValueEvent(scrollYProgress, "change", (p) => {
-    if (p < bounds.SCI_TO_STORE.end) setActiveIndex(0);
-    else if (p < bounds.STORE_TO_LIFE.end) setActiveIndex(1);
-    else if (p < bounds.LIFE_TO_FOOTER.end) setActiveIndex(2);
+    if (p < bounds.SCI_TO_STORE.start) setActiveIndex(0);
+    else if (p < bounds.STORE_TO_LIFE.start) setActiveIndex(1);
+    else if (p < bounds.LIFE_TO_FOOTER.start) setActiveIndex(2);
     else setActiveIndex(3);
+
+    // ✅ during jump: do NOT overwrite forced lastPair
+    if (jumpingRef.current) return;
+
+    let nextPair;
+    if (p < bounds.SCI_TO_STORE.end) nextPair = [0, 1];
+    else if (p < bounds.STORE_TO_LIFE.end) nextPair = [1, 2];
+    else if (p < bounds.LIFE_TO_FOOTER.end) nextPair = [2, 3];
+    else nextPair = [3, 2];
+
+    const prevPair = renderPairRef.current;
+    if (prevPair[0] !== nextPair[0] || prevPair[1] !== nextPair[1]) {
+      renderPairRef.current = nextPair;
+      setRenderPair(nextPair);
+
+      // ✅ NEW: once a section is mounted, never unmount it
+      ensureMounted(nextPair);
+    }
   });
 
+  // ✅ NEW: initial ensure (keeps current behavior: only first pair mounted at load)
+  useEffect(() => {
+    ensureMounted(renderPairRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ NEW: render if ever mounted (ignores renderPair for unmounting)
+  const shouldRender = (i) => {
+    // `mountedVersion` forces re-render when set grows (no other behavior change)
+    void mountedVersion;
+    return mountedSetRef.current.has(i);
+  };
+
   return (
-    <section ref={sectionRef} className="relative isolate bg-black" style={{ height: `${TOTAL_VH}vh` }}>
+    <section
+      ref={sectionRef}
+      className="relative isolate bg-black"
+      style={{ height: `${TOTAL_VH}vh` }}
+    >
       <div style={viewportStyle} className="overflow-hidden bg-black">
-        {/* Scientific */}
-        <motion.div
-          style={{ opacity: sciOpacity, pointerEvents: activeIndex === 0 ? "auto" : "none" }}
-          className="absolute inset-0 z-10"
-        >
-          <ScientificInnovationExternal active={activeIndex === 0} />
-        </motion.div>
+        {shouldRender(0) && (
+          <motion.div
+            style={{
+              opacity: sciOpacity,
+              pointerEvents: activeIndex === 0 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-10"
+          >
+            <ScientificInnovationExternal active={activeIndex === 0} />
+          </motion.div>
+        )}
 
-        {/* Clarida Scroll Store */}
-        <motion.div
-          style={{ opacity: storeOpacity, pointerEvents: activeIndex === 1 ? "auto" : "none" }}
-          className="absolute inset-0 z-20"
-        >
-          <ClaridaScrollStore active={activeIndex === 1} />
-        </motion.div>
+        {shouldRender(1) && (
+          <motion.div
+            style={{
+              opacity: storeOpacity,
+              pointerEvents: activeIndex === 1 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-20"
+          >
+            <Suspense fallback={null}>
+              <ClaridaScrollStore active={activeIndex === 1} />
+            </Suspense>
+          </motion.div>
+        )}
 
-        {/* Lifestyle Vision (external scrubbed) */}
-        <motion.div
-          style={{ opacity: lifeOpacity, pointerEvents: activeIndex === 2 ? "auto" : "none" }}
-          className="absolute inset-0 z-30"
-        >
-          <LifestyleVisionExternal progress={lifeProgress} active={activeIndex === 2} />
-        </motion.div>
+        {shouldRender(2) && (
+          <motion.div
+            style={{
+              opacity: lifeOpacity,
+              pointerEvents: activeIndex === 2 ? "auto" : "none",
+            }}
+            className="absolute inset-0 z-30"
+          >
+            <Suspense fallback={null}>
+              <LifestyleVisionExternal
+                progress={lifeProgress}
+                active={activeIndex === 2}
+              />
+            </Suspense>
+          </motion.div>
+        )}
 
-        {/* Footer (now included + transition into it) */}
-        <motion.div
-          style={{ opacity: footerOpacity, pointerEvents: activeIndex === 3 ? "auto" : "none" }}
-          className="absolute inset-0 z-40"
-        >
-          <Footer />
-        </motion.div>
+        {shouldRender(3) && (
+          <motion.div
+            style={{
+              opacity: footerOpacity,
+              pointerEvents: activeIndex === 3 ? "auto" : "none",
+              zIndex: 60,
+            }}
+            className="absolute inset-0"
+          >
+            <Suspense fallback={null}>
+              <Footer />
+            </Suspense>
+          </motion.div>
+        )}
 
-        {/* Arcs */}
         <TransitionArc t={sciToStoreT} />
         <TransitionArc t={storeToLifeT} />
         <TransitionArc t={lifeToFooterT} />

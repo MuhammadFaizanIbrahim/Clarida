@@ -325,6 +325,9 @@ const Hero = ({ active = true }) => {
           >
             <Button
               extra="gap-2 mt-5 lg:mt-9 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
+              }}
             >
               Join The Vision Revolution
               <img src="icons/arrowIcon.svg" className="rotate-270" />

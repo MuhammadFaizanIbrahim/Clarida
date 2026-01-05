@@ -7,25 +7,30 @@ import Button from "../components/Button.jsx";
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
-const TOTAL_FRAMES = 194;
+const TOTAL_FRAMES = 360;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/InteractiveRegeneration2/frame_${index}.webp`;
+  return `/frames/InteractiveRegeneration/frame_${index}.webp`;
 });
 
 const FIRST_FRAME_SRC = framePaths[0];
 
 // key frames where each step should peak
-const STEP_KEY_FRAMES = [40, 80, 110, 145, 190];
+const STEP_KEY_FRAMES = [80, 160, 230, 280, 330];
 const FIRST_STORY_FRAME = STEP_KEY_FRAMES[0];
 
 const storySteps = [
   { text: "The zebrafish contains one of biology's deepest secrets:" },
   { text: "How to regrow the retina itself." },
-  { text: "When its retina is damaged, a special kind of cell—Müller glia—awakens." },
+  {
+    text: "When its retina is damaged, a special kind of cell—Müller glia—awakens.",
+  },
   { text: "The zebrafish's healing isn't random, it's regeneration." },
-  { text: "Clarida isn't just a product—it's a regenerative rhythm.", showButton: true },
+  {
+    text: "Clarida isn't just a product—it's a regenerative rhythm.",
+    showButton: true,
+  },
 ];
 
 export default function InteractiveRegenerationExternal({ progress, active }) {
@@ -71,7 +76,10 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
 
   // sync with global audio toggle
   useEffect(() => {
-    if (typeof window !== "undefined" && typeof window.__claridaAudioOn === "boolean") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.__claridaAudioOn === "boolean"
+    ) {
       setIsAudioOn(window.__claridaAudioOn);
     }
   }, []);
@@ -84,7 +92,8 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       setIsAudioOn(next);
     };
     window.addEventListener("clarida-audio-toggle", handleAudioToggle);
-    return () => window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
+    return () =>
+      window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
   }, []);
 
   // fade helper
@@ -101,7 +110,11 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     clearFadeInterval();
 
     const startVolume =
-      typeof audio.volume === "number" ? audio.volume : targetVolume > 0 ? 0 : 1;
+      typeof audio.volume === "number"
+        ? audio.volume
+        : targetVolume > 0
+        ? 0
+        : 1;
     const totalSteps = Math.max(Math.round(durationMs / 50), 1);
     let step = 0;
     const diff = targetVolume - startVolume;
@@ -149,7 +162,7 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     };
   }, []);
 
-  // preload frames
+  // preload frames (base preload only)
   useEffect(() => {
     let cancelled = false;
     preloadedFramesRef.current = new Array(TOTAL_FRAMES).fill(null);
@@ -170,36 +183,54 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     };
   }, []);
 
-  // draw function
-  const drawFrame = (frameIndex) => {
+  // ✅ Safe draw support refs (prevents flashing to early frames)
+  const lastPaintedIndexRef = useRef(-1);
+  const lastRequestedIndexRef = useRef(-1);
+
+  // ✅ draw that never falls back to far "starting frames"
+  const drawFrame = (desiredIndex) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const ctx2d = canvas.getContext("2d");
-    if (!ctx2d) return;
+    if (!ctx2d) return null;
 
     const frames = preloadedFramesRef.current;
     const w = logicalWidthRef.current || canvas.clientWidth;
     const h = logicalHeightRef.current || canvas.clientHeight;
-    if (!w || !h || !frames?.length) return;
+    if (!w || !h || !frames?.length) return null;
 
-    let img = frames[frameIndex];
-    if (!img) {
-      for (let i = frameIndex - 1; i >= 0; i--) {
-        if (frames[i]) {
-          img = frames[i];
+    const SEARCH_RADIUS = 28;
+
+    let pick = -1;
+    if (frames[desiredIndex]) {
+      pick = desiredIndex;
+    } else {
+      const prevReq = lastRequestedIndexRef.current;
+      const goingForward = desiredIndex >= prevReq;
+
+      for (let d = 1; d <= SEARCH_RADIUS; d++) {
+        const a = desiredIndex - d;
+        const b = desiredIndex + d;
+
+        const first = goingForward ? b : a;
+        const second = goingForward ? a : b;
+
+        if (first >= 0 && first < TOTAL_FRAMES && frames[first]) {
+          pick = first;
+          break;
+        }
+        if (second >= 0 && second < TOTAL_FRAMES && frames[second]) {
+          pick = second;
           break;
         }
       }
-      if (!img) {
-        for (let i = frameIndex + 1; i < frames.length; i++) {
-          if (frames[i]) {
-            img = frames[i];
-            break;
-          }
-        }
-      }
     }
-    if (!img) return;
+
+    // Nothing near desired is loaded yet -> keep current canvas
+    if (pick < 0) return null;
+
+    const img = frames[pick];
+    if (!img) return null;
 
     ctx2d.clearRect(0, 0, w, h);
 
@@ -223,54 +254,37 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     }
 
     ctx2d.drawImage(img, offsetX, offsetY, drawW, drawH);
+
+    lastPaintedIndexRef.current = pick;
+    return pick;
   };
 
-  // canvas sizing (viewport-based)
-  useLayoutEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx2d = canvas.getContext("2d");
-    if (!ctx2d) return;
-
-    const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-
-      logicalWidthRef.current = width;
-      logicalHeightRef.current = height;
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      const idx = lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
-      drawFrame(idx);
-
-      // timebar starts offscreen right
-      const timeBar = timeBarRef.current;
-      if (timeBar) gsap.set(timeBar, { x: viewportWidthRef.current, opacity: 0 });
-    };
-
-    resize();
-    window.addEventListener("resize", resize);
-    window.addEventListener("orientationchange", resize);
-    return () => {
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("orientationchange", resize);
-    };
-  }, []);
-
-  // drive everything from external progress
-  useMotionValueEvent(progress, "change", (pRaw) => {
+  // ✅ single renderer (no priority loader)
+  const renderFromProgress = (pRaw, forceDraw = false) => {
     const p = clamp01(pRaw);
 
     const lastIndex = TOTAL_FRAMES - 1;
     const frameIndex = Math.min(lastIndex, Math.floor(p * lastIndex));
 
-    if (frameIndex !== lastFrameIndexRef.current) {
-      lastFrameIndexRef.current = frameIndex;
-      drawFrame(frameIndex);
+    // keep poster synced (prevents any background flash)
+    const sec = sectionRef.current;
+    if (sec) {
+      sec.style.backgroundImage = `url(${framePaths[frameIndex]})`;
+    }
+
+    lastRequestedIndexRef.current = frameIndex;
+
+    // draw safely (won't flash early frames)
+    if (forceDraw || frameIndex !== lastFrameIndexRef.current) {
+      const painted = drawFrame(frameIndex);
+
+      // only advance if we actually painted something
+      if (painted !== null) {
+        lastFrameIndexRef.current = painted;
+
+        // keep poster synced to what we actually showed
+        if (sec) sec.style.backgroundImage = `url(${framePaths[painted]})`;
+      }
     }
 
     // ---- timebar + text steps ----
@@ -290,14 +304,18 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       } else {
         let segIndex = 0;
         for (let i = 0; i < STEP_KEY_FRAMES.length - 1; i++) {
-          if (frameIndex >= STEP_KEY_FRAMES[i] && frameIndex < STEP_KEY_FRAMES[i + 1]) {
+          if (
+            frameIndex >= STEP_KEY_FRAMES[i] &&
+            frameIndex < STEP_KEY_FRAMES[i + 1]
+          ) {
             segIndex = i;
             break;
           }
         }
         const startFrame = STEP_KEY_FRAMES[segIndex];
         const endFrame = STEP_KEY_FRAMES[segIndex + 1];
-        const localT = (frameIndex - startFrame) / (endFrame - startFrame || 1);
+        const localT =
+          (frameIndex - startFrame) / (endFrame - startFrame || 1);
 
         const startX = -segmentShift * segIndex;
         const endX = -segmentShift * (segIndex + 1);
@@ -311,7 +329,10 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       let barOpacity = 0;
       if (frameIndex <= FADE_IN_START) barOpacity = 0;
       else if (frameIndex >= FADE_IN_END) barOpacity = 1;
-      else barOpacity = (frameIndex - FADE_IN_START) / (FADE_IN_END - FADE_IN_START || 1);
+      else
+        barOpacity =
+          (frameIndex - FADE_IN_START) /
+          (FADE_IN_END - FADE_IN_START || 1);
 
       gsap.set(timeBar, { x: barX, opacity: barOpacity });
     }
@@ -335,6 +356,65 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       gsap.set(textEl, { opacity, y });
       gsap.set(tickEl, { opacity: 1, scale: opacity > 0.7 ? 1.1 : 1 });
     });
+  };
+
+  // canvas sizing (viewport-based)
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) return;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      logicalWidthRef.current = width;
+      logicalHeightRef.current = height;
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // ✅ draw correct frame for current progress (not frame 0)
+      const current = clamp01(progress?.get?.() ?? 0);
+      renderFromProgress(current, true);
+
+      // timebar starts offscreen right
+      const timeBar = timeBarRef.current;
+      if (timeBar)
+        gsap.set(timeBar, { x: viewportWidthRef.current, opacity: 0 });
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+    window.addEventListener("orientationchange", resize);
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("orientationchange", resize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ on (re)entering the section, hard-sync immediately
+  useLayoutEffect(() => {
+    if (!active) return;
+    const current = clamp01(progress?.get?.() ?? 0);
+    renderFromProgress(current, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // ✅ initial mount sync
+  useLayoutEffect(() => {
+    const current = clamp01(progress?.get?.() ?? 0);
+    renderFromProgress(current, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // drive everything from external progress
+  useMotionValueEvent(progress, "change", (pRaw) => {
+    renderFromProgress(pRaw, false);
   });
 
   // tick geometry
@@ -381,7 +461,12 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     >
       <canvas ref={canvasRef} className="h-full w-full block" />
 
-      <audio ref={audioRef} src="/audios/interactiveRegeneration.mp3" preload="auto" loop />
+      <audio
+        ref={audioRef}
+        src="/audios/interactiveRegeneration.mp3"
+        preload="auto"
+        loop
+      />
 
       <div className="absolute inset-0 bg-black/30 md:bg_black/35 lg:bg-black/40 pointer-events-none" />
 
@@ -401,7 +486,11 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
           {step.showButton && (
             <Button extra="gap-2 lg:gap-3 lg:py-[10px] lg:px-[18px] flex">
               Watch Full Explainer
-              <img src="icons/arrowIcon.svg" alt="Watch explainer" className="rotate-270" />
+              <img
+                src="icons/arrowIcon.svg"
+                alt="Watch explainer"
+                className="rotate-270"
+              />
             </Button>
           )}
         </div>
