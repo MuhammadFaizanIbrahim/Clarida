@@ -136,7 +136,7 @@ const testimonialsData = [
   },
 ];
 
-const Testimonials = () => {
+const Testimonials = ({ active: sectionActive = true }) => {
   const [active, setActive] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [hideLeft, setHideLeft] = useState(false);
@@ -157,12 +157,26 @@ const Testimonials = () => {
   const isInViewRef = useRef(false);
   const isAudioOnRef = useRef(false);
 
-  // ---------- FADE HELPER (same pattern as hero, but for video) ----------
+  // ✅ NEW: section active gate (so audio stops when leaving section)
+  const sectionActiveRef = useRef(sectionActive);
+  useEffect(() => {
+    sectionActiveRef.current = !!sectionActive;
+  }, [sectionActive]);
+
   const clearFadeInterval = () => {
     if (fadeIntervalRef.current) {
       clearInterval(fadeIntervalRef.current);
       fadeIntervalRef.current = null;
     }
+  };
+
+  // ✅ NEW: hard stop helper (used when section becomes inactive)
+  const hardStop = (video) => {
+    if (!video) return;
+    clearFadeInterval();
+    video.pause();
+    video.volume = 1;
+    video.muted = true;
   };
 
   const fadeTo = (video, targetVolume, durationMs) => {
@@ -186,7 +200,11 @@ const Testimonials = () => {
     let step = 0;
     const volumeDiff = targetVolume - startVolume;
 
-    if (targetVolume > 0 && video.paused) {
+    // ✅ NEW: only try to play when section is active + in view + audio on + has video
+    const canPlayNow =
+      sectionActiveRef.current && isInViewRef.current && isAudioOnRef.current && hasVideo;
+
+    if (targetVolume > 0 && video.paused && canPlayNow) {
       video.muted = false;
       video
         .play()
@@ -198,22 +216,18 @@ const Testimonials = () => {
     if (durationMs <= 0) {
       video.volume = targetVolume;
       if (targetVolume === 0) {
-        video.pause();
-        video.volume = 1;
-        video.muted = true;
+        hardStop(video);
       }
       return;
     }
 
     fadeIntervalRef.current = setInterval(() => {
-      const shouldPlayNow = isInViewRef.current && isAudioOnRef.current && hasVideo;
+      // ✅ NEW: also require section to be active during fade
+      const shouldPlayNow =
+        sectionActiveRef.current && isInViewRef.current && isAudioOnRef.current && hasVideo;
 
-      // if during fade we moved out of view or audio turned off or no video, stop
       if (targetVolume > 0 && !shouldPlayNow) {
-        clearFadeInterval();
-        video.pause();
-        video.volume = 1;
-        video.muted = true;
+        hardStop(video);
         return;
       }
 
@@ -225,9 +239,7 @@ const Testimonials = () => {
       if (t >= 1) {
         clearFadeInterval();
         if (targetVolume === 0) {
-          video.pause();
-          video.volume = 1;
-          video.muted = true;
+          hardStop(video);
         }
       }
     }, 50);
@@ -291,6 +303,17 @@ const Testimonials = () => {
     };
   }, []);
 
+  // ✅ NEW: when section becomes inactive, stop immediately
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!sectionActive) {
+      hardStop(video);
+      setHideLeft(false);
+    }
+  }, [sectionActive]);
+
   // ---------- SINGLE SOURCE OF TRUTH FOR VIDEO PLAY / PAUSE ----------
   useEffect(() => {
     const video = videoRef.current;
@@ -299,7 +322,8 @@ const Testimonials = () => {
     isInViewRef.current = isInView;
     isAudioOnRef.current = isAudioOn;
 
-    const shouldPlay = isInView && isAudioOn && hasVideo;
+    // ✅ NEW: gate by sectionActive as well
+    const shouldPlay = sectionActive && isInView && isAudioOn && hasVideo;
 
     if (shouldPlay) {
       video.muted = false;
@@ -307,7 +331,7 @@ const Testimonials = () => {
     } else {
       fadeTo(video, 0, 800);
     }
-  }, [isInView, isAudioOn, hasVideo, active]);
+  }, [sectionActive, isInView, isAudioOn, hasVideo, active]);
 
   // ---------- CLEANUP ON UNMOUNT ----------
   useEffect(() => {
