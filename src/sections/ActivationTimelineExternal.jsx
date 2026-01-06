@@ -66,8 +66,94 @@ const timelineSteps = [
   },
 ];
 
-const isMotionValue = (v) => v && typeof v === "object" && typeof v.get === "function";
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const isMotionValue = (v) => v && typeof v === "object" && typeof v.get === "function";
+
+// ----------------- ✅ REGENERATION-STYLE MAGNET + SLOWDOWN (same behavior) -----------------
+const MAGNET_STRENGTH = 0.985;     // closer to 1 = stronger pull, but smooth
+const MAGNET_RADIUS_FRAC = 1.25;   // influence extends beyond one segment
+const MAGNET_POWER = 5.4;          // higher = more concentrated near center
+
+const magnetizeToCenters = (p, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * MAGNET_RADIUS_FRAC;
+
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
+
+  const d = p - center;
+  const ad = Math.abs(d);
+  if (ad >= radius) return p;
+
+  const t = 1 - ad / radius; // 1 at center, 0 at edge
+  const w = MAGNET_STRENGTH * Math.pow(t, MAGNET_POWER);
+
+  return clamp01(center + d * (1 - w));
+};
+
+// ✅ NEW: stable lenis-like smoothing (no stick/push)
+const SMOOTH_TIME = 0.22; // seconds (higher = smoother, floatier)
+const MAX_SPEED = 1.1;    // progress per second (prevents skipping without "push")
+
+const easeInOutCubic = (t) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+// ✅ smooth slowdown zone around each step center (no sticky / no push)
+const CENTER_SLOW_RADIUS_FRAC = 0.42; // wider zone = earlier slowdown
+const CENTER_SLOW_POWER = 1.25;       // softer curve (critical)
+
+// 🔒 Center dwell / exit resistance
+const CENTER_HOLD_RADIUS_FRAC = 0.14; // tight zone around center
+const CENTER_EXIT_RESISTANCE = 0.72;  // lower = harder to leave (0.6–0.8)
+
+const centerSlow = (p, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * CENTER_SLOW_RADIUS_FRAC;
+
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
+
+  const d = Math.abs(p - center);
+  if (d >= radius) return 0;
+
+  const t = 1 - d / radius;
+  return easeInOutCubic(Math.pow(t, CENTER_SLOW_POWER));
+};
+
+const centerHoldResistance = (p, target, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * CENTER_HOLD_RADIUS_FRAC;
+
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
+
+  const d = p - center;
+  const ad = Math.abs(d);
+
+  // outside hold zone → no resistance
+  if (ad >= radius) return target;
+
+  // how deep inside the hold zone (0 edge → 1 center)
+  const t = 1 - ad / radius;
+
+  // apply resistance ONLY when trying to leave center
+  const leaving =
+    Math.sign(target - p) === Math.sign(d) && Math.abs(target - p) > 0.00001;
+
+  if (!leaving) return target;
+
+  // smooth resistance curve
+  const resistance = Math.pow(t, 2.2);
+
+  return p + (target - p) * (1 - resistance * (1 - CENTER_EXIT_RESISTANCE));
+};
+// -----------------------------------------------------------------------------------------
 
 export default function ActivationTimelineExternal({ progress = 0, active = true }) {
   const sectionRef = useRef(null);
@@ -91,18 +177,22 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
     if (!isMotionValue(progress)) fallback.set(typeof progress === "number" ? progress : 0);
   }, [progress, fallback]);
 
-  // ✅ entry behavior
+  // ✅ entry behavior (same structure as your file)
   const activeStartRef = useRef(0);
   const ENTRY_REBASE_MAX = 0.35;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
   // ✅ Hold at start/end so arc transition can finish before timeline starts moving
   const START_HOLD_P = 0.20;
-  const END_HOLD_P = 0.05;
-  
-  // ✅ smooth internal progress (prevents teleport on parent progress jumps)
+  const END_HOLD_P = 0.20;
+
+  // ✅ internal progress
   const smoothObjRef = useRef({ p: 0 });
-  const quickToRef = useRef(null);
+
+  // ✅ target + RAF driver (Lenis style) — same as Regeneration
+  const targetPRef = useRef(0);
+  const rafRef = useRef(null);
+  const lastTimeRef = useRef(0);
 
   const renderAt = (p) => {
     const track = trackRef.current;
@@ -154,10 +244,12 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
       gsap.set(el, { opacity });
     });
 
+    // circle rotation
     const anglePerStep = 360 / timelineSteps.length;
     const rotation = -indexFloat * anglePerStep;
     if (circleRef.current) gsap.set(circleRef.current, { rotate: rotation });
 
+    // marker opacity
     const activeIndex = Math.round(indexFloat);
     const stepsN = timelineSteps.length;
 
@@ -174,27 +266,7 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
     });
   };
 
-  const setSmoothTarget = (pTarget) => {
-    const clamped = clamp01(pTarget);
-    lastPRef.current = clamped;
-
-    if (quickToRef.current) {
-      quickToRef.current(clamped);
-    } else {
-      smoothObjRef.current.p = clamped;
-      renderAt(clamped);
-    }
-  };
-
-  const resetToStart = () => {
-    smoothObjRef.current.p = 0;
-    setSmoothTarget(0);
-
-    stepIndexRef.current = 0;
-    setStepIndex(0);
-  };
-
-  // ✅ NEW: shared held-progress computation (same logic as before)
+  // ✅ identical “held progress + magnet blend” logic as Regeneration
   const computeHeldP = (pRaw) => {
     const pIncoming = clamp01(pRaw);
 
@@ -211,25 +283,104 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
       else pHeld = (pHeld - START_HOLD_P) / denomHold;
     }
 
-    return pHeld;
+    const magnetized = magnetizeToCenters(pHeld, timelineSteps.length);
+
+    // weaken magnet as slowdown increases + fade magnet in hold
+    const slow = centerSlow(pHeld, timelineSteps.length);
+    const holdFade = Math.min(slow * 1.4, 1);
+    const blend = 0.75 * (1 - holdFade);
+
+    return pHeld + (magnetized - pHeld) * blend;
   };
 
-  // ✅ NEW: hard sync visuals even when NOT active (prevents "Dose One" flash)
+  const startRaf = () => {
+    if (rafRef.current) return;
+
+    lastTimeRef.current = performance.now();
+
+    const tick = (now) => {
+      rafRef.current = requestAnimationFrame(tick);
+
+      // dt in seconds (clamped so tab switching doesn't jump)
+      const dt = Math.min(Math.max((now - lastTimeRef.current) / 1000, 0), 0.05);
+      lastTimeRef.current = now;
+
+      const current = smoothObjRef.current.p;
+      const target = targetPRef.current;
+
+      // slowdown based on proximity to center (0..1)
+      const slow = centerSlow(current, timelineSteps.length);
+
+      // inertia-based smoothing
+      const smoothTime = SMOOTH_TIME * (1 + 2.4 * slow);
+      const alpha = 1 - Math.exp(-dt / smoothTime);
+
+      let next = current + (target - current) * alpha;
+
+      // speed clamp (prevents skipping)
+      const MIN_SPEED = 0.18;
+      const maxDelta = MAX_SPEED * (MIN_SPEED + (1 - MIN_SPEED) * (1 - slow)) * dt;
+
+      const delta = next - current;
+      if (Math.abs(delta) > maxDelta) {
+        next = current + Math.sign(delta) * maxDelta;
+      }
+
+      next = clamp01(next);
+
+      smoothObjRef.current.p = next;
+      lastPRef.current = next;
+      renderAt(next);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  const stopRaf = () => {
+    if (!rafRef.current) return;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+  };
+
+  const resetToStart = () => {
+    smoothObjRef.current.p = 0;
+    targetPRef.current = 0;
+    lastPRef.current = 0;
+
+    stepIndexRef.current = 0;
+    setStepIndex(0);
+    renderAt(0);
+  };
+
+  // ✅ hard sync visuals even when NOT active (prevents "Dose One" flash)
   const syncVisual = (pRaw) => {
-    const pHeld = computeHeldP(pRaw);
-    smoothObjRef.current.p = pHeld;
-    lastPRef.current = pHeld;
-    renderAt(pHeld);
+    const pFinal = computeHeldP(pRaw);
+    smoothObjRef.current.p = pFinal;
+    targetPRef.current = pFinal;
+    lastPRef.current = pFinal;
+    renderAt(pFinal);
   };
 
   const apply = (pRaw) => {
     if (!active) return;
-    setSmoothTarget(computeHeldP(pRaw));
+
+    const held = computeHeldP(pRaw);
+    const resisted = centerHoldResistance(
+      smoothObjRef.current.p,
+      held,
+      timelineSteps.length
+    );
+
+    targetPRef.current = resisted;
+    startRaf();
   };
 
-  // ✅ on activate: choose rebase mode
+  // ✅ on activate: choose rebase mode (same as your Activation logic, but RAF-based)
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      stopRaf();
+      return;
+    }
 
     const current = clamp01(mv.get?.() ?? 0);
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
@@ -260,18 +411,9 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
     window.addEventListener("resize", compute);
     window.addEventListener("orientationchange", compute);
 
-    // smooth driver (critical)
-    quickToRef.current = gsap.quickTo(smoothObjRef.current, "p", {
-      duration: 0.18,
-      ease: "power2.out",
-      overwrite: true,
-      onUpdate: () => renderAt(smoothObjRef.current.p),
-    });
-
     return () => {
       window.removeEventListener("resize", compute);
       window.removeEventListener("orientationchange", compute);
-      quickToRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -283,7 +425,7 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ IMPORTANT CHANGE: when inactive, keep visuals synced (no "Dose One" flash)
+  // ✅ IMPORTANT: when inactive, keep visuals synced (no "Dose One" flash)
   useMotionValueEvent(mv, "change", (v) => {
     if (active) apply(v);
     else syncVisual(v);

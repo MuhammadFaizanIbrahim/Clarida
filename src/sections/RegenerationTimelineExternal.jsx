@@ -10,9 +10,6 @@ import { gsap } from "gsap";
 import { useMediaQuery } from "react-responsive";
 import { useMotionValue, useMotionValueEvent } from "framer-motion";
 
-// ✅ USE LENIS (already in your project)
-import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
-
 // ----------------- DATA -----------------
 const timelineSteps = [
   {
@@ -108,27 +105,93 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const isMotionValue = (v) =>
   v && typeof v === "object" && typeof v.get === "function";
 
-// ✅ keep it light
-const SMOOTH_TIME = 0.22;
-const ARRIVE_EPS_FRAC = 0.045;
+  const MAGNET_STRENGTH = 0.985;     // closer to 1 = stronger pull, but smooth
+  const MAGNET_RADIUS_FRAC = 1.25;  // influence extends beyond one segment
+  const MAGNET_POWER = 5.4;         // lower = smoother falloff  
 
-// ✅ one step per gesture
-const STEP_DELTA_PX = 180;
+const magnetizeToCenters = (p, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * MAGNET_RADIUS_FRAC;
 
-// ✅ edge holds (this is your “start hold / end hold” in a step-based system)
-const EDGE_HOLD_PX = 240;
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
 
-// ✅ exiting the whole section needs extra push
-const EXIT_DELTA_PX = 420;
+  const d = p - center;
+  const ad = Math.abs(d);
+  if (ad >= radius) return p;
 
-// ✅ when we allow exiting, let Lenis run briefly
-const ALLOW_NATIVE_MS = 260;
+  const t = 1 - ad / radius; // 1 at center, 0 at edge
+  const w = MAGNET_STRENGTH * Math.pow(t, MAGNET_POWER);
 
-// ✅ absorb inertia after landing at center (prevents auto-advance)
-const ARRIVAL_COOLDOWN_MS = 260;
+  return clamp01(center + d * (1 - w));
+};
 
-// ✅ cap per-event delta
-const MAX_EVENT_DELTA = 90;
+// ✅ NEW: stable lenis-like smoothing (no stick/push)
+const SMOOTH_TIME = 0.22; // seconds (higher = smoother, floatier)
+const MAX_SPEED = 1.1; // progress per second (prevents skipping without "push")
+
+const easeInOutCubic = (t) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+
+// ✅ NEW: smooth slowdown zone around each step center (no sticky / no push)
+const CENTER_SLOW_RADIUS_FRAC = 0.42; // wider zone = earlier slowdown
+const CENTER_SLOW_POWER = 1.25;       // softer curve (critical)
+
+// 🔒 Center dwell / exit resistance
+const CENTER_HOLD_RADIUS_FRAC = 0.14; // tight zone around center
+const CENTER_EXIT_RESISTANCE = 0.72;  // lower = harder to leave (0.6–0.8)
+
+
+const centerSlow = (p, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * CENTER_SLOW_RADIUS_FRAC;
+
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
+
+  const d = Math.abs(p - center);
+  if (d >= radius) return 0;
+
+  const t = 1 - d / radius;
+  return easeInOutCubic(Math.pow(t, CENTER_SLOW_POWER));
+};
+
+const centerHoldResistance = (p, target, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * CENTER_HOLD_RADIUS_FRAC;
+
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
+
+  const d = p - center;
+  const ad = Math.abs(d);
+
+  // outside hold zone → no resistance
+  if (ad >= radius) return target;
+
+  // how deep inside the hold zone (0 edge → 1 center)
+  const t = 1 - ad / radius;
+
+  // apply resistance ONLY when trying to leave center
+  const leaving =
+    Math.sign(target - p) === Math.sign(d) && Math.abs(target - p) > 0.00001;
+
+  if (!leaving) return target;
+
+  // smooth resistance curve
+  const resistance = Math.pow(t, 2.2);
+
+  return p + (target - p) * (1 - resistance * (1 - CENTER_EXIT_RESISTANCE));
+};
+
+
 
 export default function RegenerationTimelineExternal({
   progress = 0,
@@ -142,6 +205,7 @@ export default function RegenerationTimelineExternal({
   const cardRefs = useRef([]);
 
   const totalScrollRef = useRef(0);
+  const lastPRef = useRef(0);
 
   const [stepIndex, setStepIndex] = useState(0);
   const stepIndexRef = useRef(0);
@@ -204,39 +268,16 @@ export default function RegenerationTimelineExternal({
   const ENTRY_REBASE_MAX = 0.32;
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
-  // ✅ Hold at start/end (kept for initial alignment / sync)
+  // ✅ Hold at start/end
   const START_HOLD_P = 0.15;
-  const END_HOLD_P = 0.05;
+  const END_HOLD_P = 0.15;
 
   // ✅ internal progress
   const smoothObjRef = useRef({ p: 0 });
 
-  // ✅ RAF driver
+  // ✅ target + RAF driver (Lenis style)
+  const targetPRef = useRef(0);
   const rafRef = useRef(null);
-
-  // ✅ latest normalized input (post holds) – sync only
-  const latestInputRef = useRef(0);
-
-  // ✅ Lenis control
-  const lenisApi = useLenisSmoothScroll();
-  const lenis = lenisApi?.lenis ?? lenisApi;
-  const lenisStoppedRef = useRef(false);
-
-  const setLenisStopped = (shouldStop) => {
-    if (!lenis) return;
-    if (shouldStop && !lenisStoppedRef.current) {
-      lenis.stop?.();
-      lenisStoppedRef.current = true;
-    } else if (!shouldStop && lenisStoppedRef.current) {
-      lenis.start?.();
-      lenisStoppedRef.current = false;
-    }
-  };
-
-  useEffect(() => {
-    return () => setLenisStopped(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const renderAt = (p) => {
     const track = trackRef.current;
@@ -249,33 +290,21 @@ export default function RegenerationTimelineExternal({
     gsap.set(track, { x });
     gsap.set(timeBar, { x });
 
-    // ✅ IMPORTANT: use DISPLAY length for card positions (prevents “ending early”)
-    const maxCardIndex = Math.max(displaySteps.length - 1, 1);
-    const indexFloat = p * maxCardIndex;
-    const cardA = Math.floor(indexFloat);
-    const t = indexFloat - cardA;
-    const cardB = Math.min(cardA + 1, maxCardIndex);
-
-    // background crossfade based on baseIndex (so mobile split shares same bg)
-    const aBase = displaySteps[cardA]?.baseIndex ?? 0;
-    const bBase = displaySteps[cardB]?.baseIndex ?? aBase;
+    const maxIndex = timelineSteps.length - 1;
+    const indexFloat = p * maxIndex;
+    const baseIndex = Math.floor(indexFloat);
+    const t = indexFloat - baseIndex;
 
     bgRefs.current.forEach((el, idx) => {
       if (!el) return;
       let opacity = 0;
-
-      if (aBase === bBase) {
-        opacity = idx === aBase ? 1 : 0;
-      } else {
-        if (idx === aBase) opacity = 1 - t;
-        else if (idx === bBase) opacity = t;
-      }
-
+      if (idx === baseIndex) opacity = 1 - t;
+      else if (idx === baseIndex + 1) opacity = t;
       gsap.set(el, { opacity });
     });
 
     const newStep = Math.round(indexFloat);
-    const clampedStep = Math.min(Math.max(newStep, 0), maxCardIndex);
+    const clampedStep = Math.min(Math.max(newStep, 0), maxIndex);
     if (clampedStep !== stepIndexRef.current) {
       stepIndexRef.current = clampedStep;
       setStepIndex(clampedStep);
@@ -320,185 +349,19 @@ export default function RegenerationTimelineExternal({
       else pHeld = (pHeld - START_HOLD_P) / denomHold;
     }
 
-    latestInputRef.current = pHeld;
-    return pHeld;
-  };
+    const magnetized = magnetizeToCenters(pHeld, timelineSteps.length);
 
-  // ✅ step-lock state (indexed by DISPLAY steps)
-  const stepLockRef = useRef({
-    init: false,
-    idx: 0,
-    mode: "approach", // "approach" | "locked"
-    cooldownUntil: 0,
-    exitArmed: false,
-  });
+    // weaken magnet as slowdown increases
+    const slow = centerSlow(pHeld, timelineSteps.length);
 
-  const stepAccumRef = useRef(0);
-  const exitAccumRef = useRef(0);
-  const edgeHoldRef = useRef(0);
-  const allowNativeUntilRef = useRef(0);
-  const touchLastYRef = useRef(null);
-
-  const clearAccums = () => {
-    stepAccumRef.current = 0;
-    exitAccumRef.current = 0;
-  };
-
-  const clampDelta = (d) => {
-    if (d > MAX_EVENT_DELTA) return MAX_EVENT_DELTA;
-    if (d < -MAX_EVENT_DELTA) return -MAX_EVENT_DELTA;
-    return d;
-  };
-
-  const bumpStep = (dir, now) => {
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-
-    const nextIdx = Math.min(
-      Math.max(stepLockRef.current.idx + dir, 0),
-      maxIndex
-    );
-
-    if (nextIdx !== stepLockRef.current.idx) {
-      stepLockRef.current.idx = nextIdx;
-      stepLockRef.current.mode = "approach";
-      stepLockRef.current.exitArmed = false;
-      stepLockRef.current.cooldownUntil = now + 60;
-
-      edgeHoldRef.current = 0;
-      clearAccums();
-    }
-  };
-
-  // ✅ GLOBAL interception while active (fix: no more “exits after 4–5 cards”)
-  const handleGestureDelta = (rawDeltaY, now) => {
-    if (!active) return { prevent: false };
-
-    const inExitWindow = now < allowNativeUntilRef.current;
-
-    // stop Lenis while we're controlling steps (and not exiting)
-    setLenisStopped(!inExitWindow);
-
-    if (inExitWindow) return { prevent: false };
-
-    const delta = clampDelta(rawDeltaY);
-    const dir = delta > 0 ? 1 : delta < 0 ? -1 : 0;
-    if (dir === 0) return { prevent: true };
-
-    // absorb inertia right after arriving at center
-    if (now < stepLockRef.current.cooldownUntil) {
-      edgeHoldRef.current = 0;
-      clearAccums();
-      return { prevent: true };
-    }
-
-    // while approaching, block scroll so we MUST land at center
-    if (stepLockRef.current.mode === "approach") {
-      edgeHoldRef.current = 0;
-      clearAccums();
-      return { prevent: true };
-    }
-
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-    const atStart = stepLockRef.current.idx === 0;
-    const atEnd = stepLockRef.current.idx === maxIndex;
-
-    // ----- EDGE HOLD (this is your start/end hold) -----
-    // Moving inward from an edge requires an intentional extra scroll first.
-    if ((atStart && dir > 0) || (atEnd && dir < 0)) {
-      edgeHoldRef.current += Math.abs(delta);
-
-      if (edgeHoldRef.current >= EDGE_HOLD_PX) {
-        edgeHoldRef.current = 0;
-        bumpStep(dir, now); // move inward
-      }
-
-      return { prevent: true };
-    }
-
-    // ----- EXIT HOLD (leaving the entire section) -----
-    // Exiting beyond the bounds requires two phases:
-    // 1) arm exit (first intent)
-    // 2) accumulate EXIT_DELTA_PX (second stronger push)
-    if ((atStart && dir < 0) || (atEnd && dir > 0)) {
-      if (!stepLockRef.current.exitArmed) {
-        stepLockRef.current.exitArmed = true;
-        edgeHoldRef.current = 0;
-        clearAccums();
-        return { prevent: true };
-      }
-
-      exitAccumRef.current += delta;
-
-      if (Math.abs(exitAccumRef.current) >= EXIT_DELTA_PX) {
-        allowNativeUntilRef.current = now + ALLOW_NATIVE_MS;
-        stepLockRef.current.exitArmed = false;
-
-        edgeHoldRef.current = 0;
-        clearAccums();
-
-        // let Lenis run so page can actually leave
-        setLenisStopped(false);
-        return { prevent: false };
-      }
-
-      return { prevent: true };
-    }
-
-    // ----- MID-SECTION stepping -----
-    stepLockRef.current.exitArmed = false;
-    edgeHoldRef.current = 0;
-
-    stepAccumRef.current += delta;
-
-    if (Math.abs(stepAccumRef.current) >= STEP_DELTA_PX) {
-      bumpStep(Math.sign(stepAccumRef.current), now);
-      clearAccums();
-    }
-
-    return { prevent: true };
-  };
-
-  // ✅ input interception (GLOBAL while active)
-  useEffect(() => {
-    if (!active) return;
-
-    const onWheel = (e) => {
-      const now = performance.now();
-      const { prevent } = handleGestureDelta(e.deltaY, now);
-      if (prevent) e.preventDefault();
-    };
-
-    const onTouchStart = (e) => {
-      const t = e.touches && e.touches[0];
-      touchLastYRef.current = t ? t.clientY : null;
-    };
-
-    const onTouchMove = (e) => {
-      const t = e.touches && e.touches[0];
-      if (!t) return;
-
-      const lastY = touchLastYRef.current;
-      touchLastYRef.current = t.clientY;
-      if (lastY == null) return;
-
-      const deltaY = lastY - t.clientY;
-
-      const now = performance.now();
-      const { prevent } = handleGestureDelta(deltaY, now);
-      if (prevent) e.preventDefault();
-    };
-
-    window.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
-
-    return () => {
-      window.removeEventListener("wheel", onWheel);
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchmove", onTouchMove);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+    // magnet fades when in hold zone
+    const holdFade = Math.min(slow * 1.4, 1);
+    const blend = 0.75 * (1 - holdFade);
+    
+    return pHeld + (magnetized - pHeld) * blend;
+    
+    
+      };
 
   const lastTimeRef = useRef(0);
 
@@ -510,6 +373,7 @@ export default function RegenerationTimelineExternal({
     const tick = (now) => {
       rafRef.current = requestAnimationFrame(tick);
 
+      // dt in seconds (clamped so tab switching doesn't jump)
       const dt = Math.min(
         Math.max((now - lastTimeRef.current) / 1000, 0),
         0.05
@@ -517,43 +381,33 @@ export default function RegenerationTimelineExternal({
       lastTimeRef.current = now;
 
       const current = smoothObjRef.current.p;
+      const target = targetPRef.current;
 
-      const maxIndex = Math.max(displaySteps.length - 1, 1);
-      const seg = 1 / maxIndex;
+      // ✅ slowdown amount based on proximity to center (0..1)
+      const slow = centerSlow(current, timelineSteps.length);
 
-      // init idx to nearest center once
-      if (!stepLockRef.current.init) {
-        const initIdx = Math.round(clamp01(current) * maxIndex);
-        stepLockRef.current.init = true;
-        stepLockRef.current.idx = Math.min(Math.max(initIdx, 0), maxIndex);
-        stepLockRef.current.mode = "approach";
-        stepLockRef.current.cooldownUntil = 0;
-        stepLockRef.current.exitArmed = false;
-
-        edgeHoldRef.current = 0;
-        clearAccums();
+      // inertia-based slowdown (primary)
+      const smoothTime = SMOOTH_TIME * (1 + 2.4 * slow);
+      const alpha = 1 - Math.exp(-dt / smoothTime);
+      
+      let next = current + (target - current) * alpha;
+      
+      // safety speed clamp (secondary)
+      const MIN_SPEED = 0.18;
+      const maxDelta =
+        MAX_SPEED * (MIN_SPEED + (1 - MIN_SPEED) * (1 - slow)) * dt;
+      
+      const delta = next - current;
+      if (Math.abs(delta) > maxDelta) {
+        next = current + Math.sign(delta) * maxDelta;
       }
-
-      const lockCenter = stepLockRef.current.idx / maxIndex;
-
-      // detect arrival
-      if (stepLockRef.current.mode === "approach") {
-        const arrived = Math.abs(current - lockCenter) <= seg * ARRIVE_EPS_FRAC;
-        if (arrived) {
-          stepLockRef.current.mode = "locked";
-          stepLockRef.current.exitArmed = false;
-          stepLockRef.current.cooldownUntil = now + ARRIVAL_COOLDOWN_MS;
-
-          clearAccums();
-        }
-      }
-
-      const target = lockCenter;
-
-      const alpha = 1 - Math.exp(-dt / SMOOTH_TIME);
-      const next = clamp01(current + (target - current) * alpha);
+      
+      next = clamp01(next);
+      
+      
 
       smoothObjRef.current.p = next;
+      lastPRef.current = next;
       renderAt(next);
     };
 
@@ -566,64 +420,36 @@ export default function RegenerationTimelineExternal({
     rafRef.current = null;
   };
 
+  // ✅ hard sync (prevents flash)
   const syncVisual = (pRaw) => {
-    stepLockRef.current.init = false;
-    stepLockRef.current.idx = 0;
-    stepLockRef.current.mode = "approach";
-    stepLockRef.current.cooldownUntil = 0;
-    stepLockRef.current.exitArmed = false;
-
-    edgeHoldRef.current = 0;
-    clearAccums();
-    allowNativeUntilRef.current = 0;
-
     const pFinal = computeHeldP(pRaw);
-
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-    const initIdx = Math.round(pFinal * maxIndex);
-    const center = Math.min(Math.max(initIdx, 0), maxIndex) / maxIndex;
-
-    smoothObjRef.current.p = center;
-    renderAt(center);
+    smoothObjRef.current.p = pFinal;
+    targetPRef.current = pFinal;
+    lastPRef.current = pFinal;
+    renderAt(pFinal);
   };
 
   const apply = (pRaw) => {
     if (!active) return;
-
-    const pFinal = computeHeldP(pRaw);
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-    const idx = Math.min(Math.max(Math.round(pFinal * maxIndex), 0), maxIndex);
-
-    stepLockRef.current.init = true;
-    stepLockRef.current.idx = idx;
-    stepLockRef.current.mode = "approach";
-    stepLockRef.current.cooldownUntil = 0;
-    stepLockRef.current.exitArmed = false;
-
-    edgeHoldRef.current = 0;
-    clearAccums();
+  
+    const held = computeHeldP(pRaw);
+    const resisted = centerHoldResistance(
+      smoothObjRef.current.p,
+      held,
+      timelineSteps.length
+    );
+  
+    targetPRef.current = resisted;
     startRaf();
   };
+  
 
+  // ✅ on activate: decide whether to rebase or not
   useEffect(() => {
     if (!active) {
-      setLenisStopped(false);
       stopRaf();
       return;
     }
-
-    // active: stop Lenis so it cannot fling you out early
-    setLenisStopped(true);
-
-    stepLockRef.current.init = false;
-    stepLockRef.current.idx = 0;
-    stepLockRef.current.mode = "approach";
-    stepLockRef.current.cooldownUntil = 0;
-    stepLockRef.current.exitArmed = false;
-
-    edgeHoldRef.current = 0;
-    clearAccums();
-    allowNativeUntilRef.current = 0;
 
     const current = clamp01(mv.get?.() ?? 0);
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
@@ -632,8 +458,10 @@ export default function RegenerationTimelineExternal({
       activeStartRef.current = 0;
     } else if (current <= ENTRY_REBASE_MAX) {
       activeStartRef.current = current;
-
+      // resetToStart behavior without changing visuals structure
       smoothObjRef.current.p = 0;
+      targetPRef.current = 0;
+      lastPRef.current = 0;
       stepIndexRef.current = 0;
       setStepIndex(0);
       renderAt(0);
@@ -643,7 +471,7 @@ export default function RegenerationTimelineExternal({
 
     apply(current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, displaySteps.length]);
+  }, [active]);
 
   // ----------------- layout: compute totalScroll -----------------
   useLayoutEffect(() => {
@@ -674,18 +502,12 @@ export default function RegenerationTimelineExternal({
     const current = clamp01(mv.get?.() ?? 0);
     syncVisual(current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displaySteps.length]);
+  }, []);
 
-  // ✅ when inactive, sync; when active, only respond during allowed exit window
+  // ✅ keep visuals synced when inactive, lenis-smooth when active
   useMotionValueEvent(mv, "change", (v) => {
-    if (!active) {
-      syncVisual(v);
-      return;
-    }
-    const now = performance.now();
-    if (now < allowNativeUntilRef.current) {
-      apply(v);
-    }
+    if (active) apply(v);
+    else syncVisual(v);
   });
 
   // ----------------- ✅ AUDIO (UNCHANGED) -----------------
@@ -934,10 +756,7 @@ export default function RegenerationTimelineExternal({
                           .map((word, i) => {
                             if (word.toLowerCase().includes("listens")) {
                               return (
-                                <span
-                                  key={i}
-                                  className="font-bold h2-text-bold"
-                                >
+                                <span key={i} className="font-bold h2-text-bold">
                                   {word}{" "}
                                 </span>
                               );
@@ -952,10 +771,7 @@ export default function RegenerationTimelineExternal({
                         {item.title.split(" ").map((word, i) => {
                           if (word.toLowerCase().includes("listens")) {
                             return (
-                              <span
-                                key={i}
-                                className="font-bold h2-text-bold"
-                              >
+                              <span key={i} className="font-bold h2-text-bold">
                                 {word}{" "}
                               </span>
                             );

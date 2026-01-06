@@ -87,7 +87,7 @@ export default function HomepageSectionBySectionScroll() {
       DIFF_HOLD: 220,
       DIFF_TO_REGEN: 75,
 
-      REGEN_HOLD: 1250,
+      REGEN_HOLD: 550,
       REGEN_TO_ACT: 75,
 
       ACT_HOLD: 420,
@@ -373,7 +373,11 @@ export default function HomepageSectionBySectionScroll() {
     ? 1
     : useTransform(
         scrollYProgress,
-        [bounds.HERO_HOLD.start, bounds.HERO_HOLD.end, bounds.HERO_TO_INTER.end],
+        [
+          bounds.HERO_HOLD.start,
+          bounds.HERO_HOLD.end,
+          bounds.HERO_TO_INTER.end,
+        ],
         [1, 1, 0],
         { clamp: true }
       );
@@ -656,7 +660,7 @@ export default function HomepageSectionBySectionScroll() {
             className="absolute inset-0 z-30"
           >
             <Suspense fallback={null}>
-              <Testimonials />
+              <Testimonials active={activeIndex === 2} />
             </Suspense>
           </motion.div>
         )}
