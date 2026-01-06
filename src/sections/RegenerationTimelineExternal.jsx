@@ -10,9 +10,6 @@ import { gsap } from "gsap";
 import { useMediaQuery } from "react-responsive";
 import { useMotionValue, useMotionValueEvent } from "framer-motion";
 
-// ✅ USE LENIS (already in your project)
-import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
-
 // ----------------- DATA -----------------
 const timelineSteps = [
   {
@@ -108,41 +105,98 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const isMotionValue = (v) =>
   v && typeof v === "object" && typeof v.get === "function";
 
-// ✅ smoothing (used for “settle” / non-step updates)
-const SMOOTH_DUR = 0.28; // was 0.18 (slightly slower settle = smoother)
+  const MAGNET_STRENGTH = 0.985;     // closer to 1 = stronger pull, but smooth
+  const MAGNET_RADIUS_FRAC = 1.25;  // influence extends beyond one segment
+  const MAGNET_POWER = 5.4;         // lower = smoother falloff  
 
-// ✅ step-to-step slide duration (THIS is what you feel)
-const STEP_ANIM_DUR = 0.9; // was 0.65 (longer = smoother)
-const STEP_EASE = "power2.inOut"; // smoother leave + smoother arrival
+const magnetizeToCenters = (p, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * MAGNET_RADIUS_FRAC;
 
-// ✅ entry behavior
-const ENTRY_REBASE_MAX = 0.32;
-const ENTRY_FROM_BELOW_MIN = 0.75;
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
 
-// ✅ Hold at start/end so arc transition can finish before timeline starts moving
-const START_HOLD_P = 0.15;
-const END_HOLD_P = 0.05;
+  const d = p - center;
+  const ad = Math.abs(d);
+  if (ad >= radius) return p;
 
-// ✅ “double scroll” feel (hysteresis + cooldown)
-const HYSTERESIS = 0.38; // was 0.52 (less travel needed to leave center)
+  const t = 1 - ad / radius; // 1 at center, 0 at edge
+  const w = MAGNET_STRENGTH * Math.pow(t, MAGNET_POWER);
 
-// ✅ NEW: distance-based commit (prevents "too much scroll")
-const COMMIT_BEYOND = 0.14; // 0.10–0.18 (smaller = easier to go next)
+  return clamp01(center + d * (1 - w));
+};
 
-// ✅ intent ramp (still used, but now secondary)
-const INTENT_GAIN = 10.0;
-const INTENT_DECAY = 3.2;
-const INTENT_START = 0.55; // head-start when user commits direction
+// ✅ NEW: stable lenis-like smoothing (no stick/push)
+const SMOOTH_TIME = 0.22; // seconds (higher = smoother, floatier)
+const MAX_SPEED = 1.1; // progress per second (prevents skipping without "push")
+
+const easeInOutCubic = (t) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
 
-const ARRIVAL_COOLDOWN_MS = 320;
+// ✅ NEW: smooth slowdown zone around each step center (no sticky / no push)
+const CENTER_SLOW_RADIUS_FRAC = 0.42; // wider zone = earlier slowdown
+const CENTER_SLOW_POWER = 1.25;       // softer curve (critical)
+
+// 🔒 Center dwell / exit resistance
+const CENTER_HOLD_RADIUS_FRAC = 0.14; // tight zone around center
+const CENTER_EXIT_RESISTANCE = 0.72;  // lower = harder to leave (0.6–0.8)
+
+
+const centerSlow = (p, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * CENTER_SLOW_RADIUS_FRAC;
+
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
+
+  const d = Math.abs(p - center);
+  if (d >= radius) return 0;
+
+  const t = 1 - d / radius;
+  return easeInOutCubic(Math.pow(t, CENTER_SLOW_POWER));
+};
+
+const centerHoldResistance = (p, target, stepsLen) => {
+  const maxIndex = Math.max(stepsLen - 1, 1);
+  const seg = 1 / maxIndex;
+  const radius = seg * CENTER_HOLD_RADIUS_FRAC;
+
+  const idxFloat = p * maxIndex;
+  const nearest = Math.round(idxFloat);
+  const center = nearest / maxIndex;
+
+  const d = p - center;
+  const ad = Math.abs(d);
+
+  // outside hold zone → no resistance
+  if (ad >= radius) return target;
+
+  // how deep inside the hold zone (0 edge → 1 center)
+  const t = 1 - ad / radius;
+
+  // apply resistance ONLY when trying to leave center
+  const leaving =
+    Math.sign(target - p) === Math.sign(d) && Math.abs(target - p) > 0.00001;
+
+  if (!leaving) return target;
+
+  // smooth resistance curve
+  const resistance = Math.pow(t, 2.2);
+
+  return p + (target - p) * (1 - resistance * (1 - CENTER_EXIT_RESISTANCE));
+};
+
+
 
 export default function RegenerationTimelineExternal({
   progress = 0,
   active = true,
 }) {
-  useLenisSmoothScroll();
-
   const sectionRef = useRef(null);
   const trackRef = useRef(null);
   const timeBarRef = useRef(null);
@@ -151,6 +205,7 @@ export default function RegenerationTimelineExternal({
   const cardRefs = useRef([]);
 
   const totalScrollRef = useRef(0);
+  const lastPRef = useRef(0);
 
   const [stepIndex, setStepIndex] = useState(0);
   const stepIndexRef = useRef(0);
@@ -204,28 +259,25 @@ export default function RegenerationTimelineExternal({
   }, [progress, fallback]);
 
   const handleScrollToEnd = () => {
-    window.dispatchEvent(new CustomEvent("clarida-regen-jump-end"));
+    const top = window.innerHeight * 4.5;
+    window.scrollBy({ top, behavior: "smooth" });
   };
 
+  // ✅ entry behavior
   const activeStartRef = useRef(0);
+  const ENTRY_REBASE_MAX = 0.32;
+  const ENTRY_FROM_BELOW_MIN = 0.75;
 
+  // ✅ Hold at start/end
+  const START_HOLD_P = 0.15;
+  const END_HOLD_P = 0.05;
+
+  // ✅ internal progress
   const smoothObjRef = useRef({ p: 0 });
-  const quickToRef = useRef(null);
 
-  // ✅ step tween guard
-  const moveRef = useRef({ active: false });
-
-  const lockRef = useRef({
-    idx: 0,
-    cooldownUntil: 0,
-  });
-
-  // ✅ NEW: intent accumulator for ultra-smooth “leaving the center”
-  const intentRef = useRef({
-    dir: 0, // -1 / +1
-    amt: 0, // 0..1
-    lastNow: 0,
-  });
+  // ✅ target + RAF driver (Lenis style)
+  const targetPRef = useRef(0);
+  const rafRef = useRef(null);
 
   const renderAt = (p) => {
     const track = trackRef.current;
@@ -238,32 +290,21 @@ export default function RegenerationTimelineExternal({
     gsap.set(track, { x });
     gsap.set(timeBar, { x });
 
-    const maxCardIndex = Math.max(displaySteps.length - 1, 1);
-    const indexFloat = p * maxCardIndex;
-    const cardA = Math.floor(indexFloat);
-    const t = indexFloat - cardA;
-    const cardB = Math.min(cardA + 1, maxCardIndex);
-
-    const aBase = displaySteps[cardA]?.baseIndex ?? 0;
-    const bBase = displaySteps[cardB]?.baseIndex ?? aBase;
+    const maxIndex = timelineSteps.length - 1;
+    const indexFloat = p * maxIndex;
+    const baseIndex = Math.floor(indexFloat);
+    const t = indexFloat - baseIndex;
 
     bgRefs.current.forEach((el, idx) => {
       if (!el) return;
       let opacity = 0;
-
-      if (aBase === bBase) {
-        opacity = idx === aBase ? 1 : 0;
-      } else {
-        if (idx === aBase) opacity = 1 - t;
-        else if (idx === bBase) opacity = t;
-      }
-
+      if (idx === baseIndex) opacity = 1 - t;
+      else if (idx === baseIndex + 1) opacity = t;
       gsap.set(el, { opacity });
     });
 
     const newStep = Math.round(indexFloat);
-    const clampedStep = Math.min(Math.max(newStep, 0), maxCardIndex);
-
+    const clampedStep = Math.min(Math.max(newStep, 0), maxIndex);
     if (clampedStep !== stepIndexRef.current) {
       stepIndexRef.current = clampedStep;
       setStepIndex(clampedStep);
@@ -308,160 +349,107 @@ export default function RegenerationTimelineExternal({
       else pHeld = (pHeld - START_HOLD_P) / denomHold;
     }
 
-    return pHeld;
-  };
+    const magnetized = magnetizeToCenters(pHeld, timelineSteps.length);
 
-  const setSmoothTarget = (pTarget) => {
-    const clamped = clamp01(pTarget);
-    if (quickToRef.current) quickToRef.current(clamped);
-    else {
-      smoothObjRef.current.p = clamped;
-      renderAt(clamped);
-    }
-  };
+    // weaken magnet as slowdown increases
+    const slow = centerSlow(pHeld, timelineSteps.length);
 
-  // ✅ smooth step-to-step tween (longer + nicer, smoother depart + arrive)
-  const startStepTween = (pTarget) => {
-    const clamped = clamp01(pTarget);
+    // magnet fades when in hold zone
+    const holdFade = Math.min(slow * 1.4, 1);
+    const blend = 0.75 * (1 - holdFade);
+    
+    return pHeld + (magnetized - pHeld) * blend;
+    
+    
+      };
 
-    moveRef.current.active = true;
+  const lastTimeRef = useRef(0);
 
-    gsap.to(smoothObjRef.current, {
-      p: clamped,
-      duration: STEP_ANIM_DUR,
-      ease: STEP_EASE,
-      overwrite: true,
-      onUpdate: () => renderAt(smoothObjRef.current.p),
-      onComplete: () => {
-        moveRef.current.active = false;
-      },
-    });
-  };
+  const startRaf = () => {
+    if (rafRef.current) return;
 
-  const syncVisual = (pRaw) => {
-    const pHeld = computeHeldP(pRaw);
-    smoothObjRef.current.p = pHeld;
-    renderAt(pHeld);
+    lastTimeRef.current = performance.now();
 
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-    const idx = Math.min(Math.max(Math.round(pHeld * maxIndex), 0), maxIndex);
-    lockRef.current.idx = idx;
-    lockRef.current.cooldownUntil = 0;
-    stepIndexRef.current = idx;
-    setStepIndex(idx);
+    const tick = (now) => {
+      rafRef.current = requestAnimationFrame(tick);
 
-    // reset intent
-    intentRef.current.dir = 0;
-    intentRef.current.amt = 0;
-    intentRef.current.lastNow = performance.now();
-  };
+      // dt in seconds (clamped so tab switching doesn't jump)
+      const dt = Math.min(
+        Math.max((now - lastTimeRef.current) / 1000, 0),
+        0.05
+      );
+      lastTimeRef.current = now;
 
-  const applyLocked = (pRaw, now) => {
-    // ✅ if a step tween is running, let it finish (prevents snapping/jitter)
-    if (moveRef.current.active) return;
+      const current = smoothObjRef.current.p;
+      const target = targetPRef.current;
 
-    const pHeld = computeHeldP(pRaw);
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
+      // ✅ slowdown amount based on proximity to center (0..1)
+      const slow = centerSlow(current, timelineSteps.length);
 
-    const curIdx = lockRef.current.idx;
-    const seg = 1 / maxIndex;
-
-    const nextThresh = (curIdx + HYSTERESIS) * seg;
-    const prevThresh = (curIdx - HYSTERESIS) * seg;
-
-    // cooldown prevents rapid flipping
-    if (now < lockRef.current.cooldownUntil) {
-      const target = curIdx / maxIndex;
-      // ✅ don't constantly overwrite unless we need to “finish” settling
-      if (Math.abs(smoothObjRef.current.p - target) > 0.0008) {
-        setSmoothTarget(target);
+      // inertia-based slowdown (primary)
+      const smoothTime = SMOOTH_TIME * (1 + 2.4 * slow);
+      const alpha = 1 - Math.exp(-dt / smoothTime);
+      
+      let next = current + (target - current) * alpha;
+      
+      // safety speed clamp (secondary)
+      const MIN_SPEED = 0.18;
+      const maxDelta =
+        MAX_SPEED * (MIN_SPEED + (1 - MIN_SPEED) * (1 - slow)) * dt;
+      
+      const delta = next - current;
+      if (Math.abs(delta) > maxDelta) {
+        next = current + Math.sign(delta) * maxDelta;
       }
-      return;
-    }
+      
+      next = clamp01(next);
+      
+      
 
-    // ✅ intent ramp (smooth leaving / prevents instant flip)
-    const last = intentRef.current.lastNow || now;
-    const dtS = Math.min(Math.max((now - last) / 1000, 0), 0.06);
-    intentRef.current.lastNow = now;
+      smoothObjRef.current.p = next;
+      lastPRef.current = next;
+      renderAt(next);
+    };
 
-    let desiredDir = 0;
-    let beyond = 0;
-
-    if (pHeld >= nextThresh && curIdx < maxIndex) {
-      desiredDir = +1;
-      beyond = pHeld - nextThresh;
-    } else if (pHeld <= prevThresh && curIdx > 0) {
-      desiredDir = -1;
-      beyond = prevThresh - pHeld;
-    }
-
-    if (desiredDir === 0) {
-      // decay back to 0 intent while staying centered
-      intentRef.current.amt = Math.max(0, intentRef.current.amt - INTENT_DECAY * dtS);
-      intentRef.current.dir = 0;
-
-      setSmoothTarget(curIdx / maxIndex);
-      return;
-    }
-
-    // if user changes direction, reset intent (feels smoother / less twitchy)
-    if (intentRef.current.dir !== desiredDir) {
-      intentRef.current.dir = desiredDir;
-      intentRef.current.amt = INTENT_START; // ✅ instant “less scroll” feel
-    }    
-
-    // normalize how far beyond threshold (in "segment units")
-const beyondNorm = seg > 0 ? beyond / seg : 0;
-
-// ✅ 1) Distance-based commit (fixes “too much scroll” immediately)
-if (beyondNorm >= COMMIT_BEYOND) {
-  const nextIdx = curIdx + desiredDir;
-
-  lockRef.current.idx = nextIdx;
-  lockRef.current.cooldownUntil =
-    now + ARRIVAL_COOLDOWN_MS + STEP_ANIM_DUR * 1000;
-
-  stepIndexRef.current = nextIdx;
-  setStepIndex(nextIdx);
-
-  // reset intent after commit
-  intentRef.current.amt = 0;
-  intentRef.current.dir = 0;
-
-  startStepTween(nextIdx / maxIndex);
-  return;
-}
-
-// ✅ 2) Otherwise, still allow gentle “intent ramp”
-intentRef.current.amt = Math.min(
-  1,
-  intentRef.current.amt + (0.35 + beyondNorm) * INTENT_GAIN * dtS
-);
-
-if (intentRef.current.amt >= 1) {
-  const nextIdx = curIdx + desiredDir;
-
-  lockRef.current.idx = nextIdx;
-  lockRef.current.cooldownUntil =
-    now + ARRIVAL_COOLDOWN_MS + STEP_ANIM_DUR * 1000;
-
-  stepIndexRef.current = nextIdx;
-  setStepIndex(nextIdx);
-
-  intentRef.current.amt = 0;
-  intentRef.current.dir = 0;
-
-  startStepTween(nextIdx / maxIndex);
-  return;
-}
-
-
-    // while building intent, keep gently pulled to current center
-    setSmoothTarget(curIdx / maxIndex);
+    rafRef.current = requestAnimationFrame(tick);
   };
 
-  useEffect(() => {
+  const stopRaf = () => {
+    if (!rafRef.current) return;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+  };
+
+  // ✅ hard sync (prevents flash)
+  const syncVisual = (pRaw) => {
+    const pFinal = computeHeldP(pRaw);
+    smoothObjRef.current.p = pFinal;
+    targetPRef.current = pFinal;
+    lastPRef.current = pFinal;
+    renderAt(pFinal);
+  };
+
+  const apply = (pRaw) => {
     if (!active) return;
+  
+    const held = computeHeldP(pRaw);
+    const resisted = centerHoldResistance(
+      smoothObjRef.current.p,
+      held,
+      timelineSteps.length
+    );
+  
+    targetPRef.current = resisted;
+    startRaf();
+  };
+  
+
+  // ✅ on activate: decide whether to rebase or not
+  useEffect(() => {
+    if (!active) {
+      stopRaf();
+      return;
+    }
 
     const current = clamp01(mv.get?.() ?? 0);
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
@@ -470,13 +458,10 @@ if (intentRef.current.amt >= 1) {
       activeStartRef.current = 0;
     } else if (current <= ENTRY_REBASE_MAX) {
       activeStartRef.current = current;
-      lockRef.current.idx = 0;
-      lockRef.current.cooldownUntil = 0;
-
-      moveRef.current.active = false;
-      gsap.killTweensOf(smoothObjRef.current);
-
-      setSmoothTarget(0);
+      // resetToStart behavior without changing visuals structure
+      smoothObjRef.current.p = 0;
+      targetPRef.current = 0;
+      lastPRef.current = 0;
       stepIndexRef.current = 0;
       setStepIndex(0);
       renderAt(0);
@@ -484,29 +469,11 @@ if (intentRef.current.amt >= 1) {
       activeStartRef.current = 0;
     }
 
-    const pHeld = computeHeldP(current);
-    const maxIndex = Math.max(displaySteps.length - 1, 1);
-    const idx = Math.min(Math.max(Math.round(pHeld * maxIndex), 0), maxIndex);
-
-    lockRef.current.idx = idx;
-    lockRef.current.cooldownUntil = performance.now() + 40;
-
-    stepIndexRef.current = idx;
-    setStepIndex(idx);
-
-    moveRef.current.active = false;
-    gsap.killTweensOf(smoothObjRef.current);
-
-    // reset intent
-    intentRef.current.dir = 0;
-    intentRef.current.amt = 0;
-    intentRef.current.lastNow = performance.now();
-
-    // settle to current card smoothly
-    setSmoothTarget(idx / maxIndex);
+    apply(current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, displaySteps.length]);
+  }, [active]);
 
+  // ----------------- layout: compute totalScroll -----------------
   useLayoutEffect(() => {
     const track = trackRef.current;
     if (!track) return;
@@ -523,31 +490,23 @@ if (intentRef.current.amt >= 1) {
     window.addEventListener("resize", compute);
     window.addEventListener("orientationchange", compute);
 
-    // keep quick “settle” (not used for the big step slide)
-    quickToRef.current = gsap.quickTo(smoothObjRef.current, "p", {
-      duration: SMOOTH_DUR,
-      ease: "power2.out",
-      overwrite: true,
-      onUpdate: () => renderAt(smoothObjRef.current.p),
-    });
-
     return () => {
       window.removeEventListener("resize", compute);
       window.removeEventListener("orientationchange", compute);
-      quickToRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displaySteps.length]);
 
+  // ✅ INITIAL mount sync
   useLayoutEffect(() => {
     const current = clamp01(mv.get?.() ?? 0);
     syncVisual(current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displaySteps.length]);
+  }, []);
 
+  // ✅ keep visuals synced when inactive, lenis-smooth when active
   useMotionValueEvent(mv, "change", (v) => {
-    const now = performance.now();
-    if (active) applyLocked(v, now);
+    if (active) apply(v);
     else syncVisual(v);
   });
 
