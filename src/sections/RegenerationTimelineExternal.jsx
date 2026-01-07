@@ -105,9 +105,9 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const isMotionValue = (v) =>
   v && typeof v === "object" && typeof v.get === "function";
 
-  const MAGNET_STRENGTH = 0.985;     // closer to 1 = stronger pull, but smooth
-  const MAGNET_RADIUS_FRAC = 1.25;  // influence extends beyond one segment
-  const MAGNET_POWER = 5.4;         // lower = smoother falloff  
+const MAGNET_STRENGTH = 0.985; // closer to 1 = stronger pull, but smooth
+const MAGNET_RADIUS_FRAC = 1.25; // influence extends beyond one segment
+const MAGNET_POWER = 5.4; // lower = smoother falloff
 
 const magnetizeToCenters = (p, stepsLen) => {
   const maxIndex = Math.max(stepsLen - 1, 1);
@@ -135,15 +135,13 @@ const MAX_SPEED = 1.1; // progress per second (prevents skipping without "push")
 const easeInOutCubic = (t) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-
 // ✅ NEW: smooth slowdown zone around each step center (no sticky / no push)
 const CENTER_SLOW_RADIUS_FRAC = 0.42; // wider zone = earlier slowdown
-const CENTER_SLOW_POWER = 1.25;       // softer curve (critical)
+const CENTER_SLOW_POWER = 1.25; // softer curve (critical)
 
 // 🔒 Center dwell / exit resistance
 const CENTER_HOLD_RADIUS_FRAC = 0.14; // tight zone around center
-const CENTER_EXIT_RESISTANCE = 0.72;  // lower = harder to leave (0.6–0.8)
-
+const CENTER_EXIT_RESISTANCE = 0.72; // lower = harder to leave (0.6–0.8)
 
 const centerSlow = (p, stepsLen) => {
   const maxIndex = Math.max(stepsLen - 1, 1);
@@ -191,8 +189,6 @@ const centerHoldResistance = (p, target, stepsLen) => {
   return p + (target - p) * (1 - resistance * (1 - CENTER_EXIT_RESISTANCE));
 };
 
-
-
 export default function RegenerationTimelineExternal({
   progress = 0,
   active = true,
@@ -209,6 +205,26 @@ export default function RegenerationTimelineExternal({
 
   const [stepIndex, setStepIndex] = useState(0);
   const stepIndexRef = useRef(0);
+
+  // ✅ detect scroll direction + pre-snap helpers
+  const scrollDirRef = useRef(1); // 1 = down, -1 = up
+  const lastScrollYRef = useRef(
+    typeof window !== "undefined" ? window.scrollY : 0
+  );
+  const preSnapEndRef = useRef(false);
+
+  // ✅ keep latest active for scroll listener
+  const activeScrollRef = useRef(active);
+  useEffect(() => {
+    activeScrollRef.current = active;
+  }, [active]);
+
+  // ✅ prevents "jump to last card" when leaving to next section
+  const exitLockRef = useRef(false);
+  const exitFreezePRef = useRef(0);
+
+  // ✅ allow calling syncVisual from scroll listener without reordering code
+  const syncVisualRef = useRef(null);
 
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
@@ -258,59 +274,55 @@ export default function RegenerationTimelineExternal({
     }
   }, [progress, fallback]);
 
-    // ✅ Scroll button: jump to END of this section (start of next section's first screen)
-    const findHomepageScrollRoot = () => {
-      // walks up to the big <section style={{ height: `${TOTAL_VH}vh` }}>
-      let node = sectionRef.current;
-      while (node) {
-        if (node.tagName === "SECTION") {
-          const h = node.style?.height || "";
-          // the homepage scroll root is the only SECTION with a huge vh height inline
-          if (h.endsWith("vh") && parseFloat(h) > 100) return node;
-        }
-        node = node.parentElement;
+  // ✅ Scroll button: jump to END of this section (start of next section's first screen)
+  const findHomepageScrollRoot = () => {
+    let node = sectionRef.current;
+    while (node) {
+      if (node.tagName === "SECTION") {
+        const h = node.style?.height || "";
+        if (h.endsWith("vh") && parseFloat(h) > 100) return node;
       }
-      return null;
-    };
-  
-    const handleScrollToEnd = () => {
-      const root = findHomepageScrollRoot();
-  
-      // fallback (shouldn't happen)
-      if (!root) {
-        window.scrollBy({ top: window.innerHeight, behavior: "smooth" });
-        return;
-      }
-  
-      // compute the same "range" as HomepageSectionBySectionScroll
-      const rect = root.getBoundingClientRect();
-      const start = rect.top + window.scrollY;
-      const height = root.offsetHeight;
-      const vh = window.innerHeight || document.documentElement.clientHeight;
-      const end = start + height - vh;
-      const dist = end - start;
-  
-      if (dist <= 0) return;
-  
-      // 👇 These match HomepageSectionBySectionScroll VH values
-      // target = end of REGEN section transition (start of Activation HOLD = "first screen" of next section)
-      const TOTAL_VH = 3320;
-      const TO_ACTIVATION_FIRST_SCREEN_VH = 1820; // up to REGEN_TO_ACT end
-      const targetP = TO_ACTIVATION_FIRST_SCREEN_VH / TOTAL_VH;
-  
-      const yTarget = Math.min(end - 2, start + targetP * dist + 2);
-  
-      // only scroll forward
-      if (window.scrollY >= yTarget - 2) return;
-  
-      // use Lenis if available, otherwise native smooth scroll
-      if (window.lenis && typeof window.lenis.scrollTo === "function") {
-        window.lenis.scrollTo(yTarget, { duration: 1.0 });
-      } else {
-        window.scrollTo({ top: yTarget, left: 0, behavior: "smooth" });
-      }
-    };
-  
+      node = node.parentElement;
+    }
+    return null;
+  };
+
+  const handleScrollToEnd = () => {
+    // ✅ FIX #2: DO NOT jump to last card before leaving
+    exitLockRef.current = true;
+    exitFreezePRef.current = smoothObjRef.current.p;
+    targetPRef.current = exitFreezePRef.current;
+
+    const root = findHomepageScrollRoot();
+
+    if (!root) {
+      window.scrollBy({ top: window.innerHeight, behavior: "smooth" });
+      return;
+    }
+
+    const rect = root.getBoundingClientRect();
+    const start = rect.top + window.scrollY;
+    const height = root.offsetHeight;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const end = start + height - vh;
+    const dist = end - start;
+
+    if (dist <= 0) return;
+
+    const TOTAL_VH = 3320;
+    const TO_ACTIVATION_FIRST_SCREEN_VH = 1820;
+    const targetP = TO_ACTIVATION_FIRST_SCREEN_VH / TOTAL_VH;
+
+    const yTarget = Math.min(end - 2, start + targetP * dist + 2);
+
+    if (window.scrollY >= yTarget - 2) return;
+
+    if (window.lenis && typeof window.lenis.scrollTo === "function") {
+      window.lenis.scrollTo(yTarget, { duration: 1.0 });
+    } else {
+      window.scrollTo({ top: yTarget, left: 0, behavior: "smooth" });
+    }
+  };
 
   // ✅ entry behavior
   const activeStartRef = useRef(0);
@@ -400,17 +412,13 @@ export default function RegenerationTimelineExternal({
 
     const magnetized = magnetizeToCenters(pHeld, timelineSteps.length);
 
-    // weaken magnet as slowdown increases
     const slow = centerSlow(pHeld, timelineSteps.length);
 
-    // magnet fades when in hold zone
     const holdFade = Math.min(slow * 1.4, 1);
     const blend = 0.75 * (1 - holdFade);
-    
+
     return pHeld + (magnetized - pHeld) * blend;
-    
-    
-      };
+  };
 
   const lastTimeRef = useRef(0);
 
@@ -422,7 +430,6 @@ export default function RegenerationTimelineExternal({
     const tick = (now) => {
       rafRef.current = requestAnimationFrame(tick);
 
-      // dt in seconds (clamped so tab switching doesn't jump)
       const dt = Math.min(
         Math.max((now - lastTimeRef.current) / 1000, 0),
         0.05
@@ -432,28 +439,23 @@ export default function RegenerationTimelineExternal({
       const current = smoothObjRef.current.p;
       const target = targetPRef.current;
 
-      // ✅ slowdown amount based on proximity to center (0..1)
       const slow = centerSlow(current, timelineSteps.length);
 
-      // inertia-based slowdown (primary)
       const smoothTime = SMOOTH_TIME * (1 + 2.4 * slow);
       const alpha = 1 - Math.exp(-dt / smoothTime);
-      
+
       let next = current + (target - current) * alpha;
-      
-      // safety speed clamp (secondary)
+
       const MIN_SPEED = 0.18;
       const maxDelta =
         MAX_SPEED * (MIN_SPEED + (1 - MIN_SPEED) * (1 - slow)) * dt;
-      
+
       const delta = next - current;
       if (Math.abs(delta) > maxDelta) {
         next = current + Math.sign(delta) * maxDelta;
       }
-      
+
       next = clamp01(next);
-      
-      
 
       smoothObjRef.current.p = next;
       lastPRef.current = next;
@@ -478,56 +480,120 @@ export default function RegenerationTimelineExternal({
     renderAt(pFinal);
   };
 
+  // ✅ make available to scroll listener
+  syncVisualRef.current = syncVisual;
+
   const apply = (pRaw) => {
     if (!active) return;
-  
+
+    // ✅ FIX #2 (manual scroll too): if parent drives us near "exit" quickly,
+    // freeze on the current card so we don't snap to the last card before leaving.
+    const currentP = smoothObjRef.current.p;
+
+    // allow unlock if user comes back inside section (progress drops)
+    if (exitLockRef.current && pRaw < 0.98) {
+      exitLockRef.current = false;
+    }
+
+    if (!exitLockRef.current && pRaw >= 0.995 && currentP <= 0.9) {
+      exitLockRef.current = true;
+      exitFreezePRef.current = currentP;
+    }
+
+    if (exitLockRef.current) {
+      targetPRef.current = exitFreezePRef.current;
+      startRaf();
+      return;
+    }
+
     const held = computeHeldP(pRaw);
     const resisted = centerHoldResistance(
       smoothObjRef.current.p,
       held,
       timelineSteps.length
     );
-  
+
     targetPRef.current = resisted;
     startRaf();
   };
-  
 
   // ✅ on activate: decide whether to rebase or not
   useEffect(() => {
     if (!active) {
       stopRaf();
-  
-      // ✅ FIX: when leaving the section, snap visuals to the current (clamped) mv
-      // prevents showing the old step (e.g. 10am) for a frame when scrolling back
+
+      // keep internal refs synced WITHOUT rendering (prevents exit flash)
       const current = clamp01(mv.get?.() ?? 0);
-      syncVisual(current);
-  
+      const pFinal = computeHeldP(current);
+
+      smoothObjRef.current.p = pFinal;
+      targetPRef.current = pFinal;
+      lastPRef.current = pFinal;
+
       return;
     }
-  
+
+    // ✅ re-enter: clear exit lock + allow fresh pre-snap later
+    exitLockRef.current = false;
+    preSnapEndRef.current = false;
+
     const current = clamp01(mv.get?.() ?? 0);
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
-  
-    if (enteringFromBelow) {
-      activeStartRef.current = 0;
-    } else if (current <= ENTRY_REBASE_MAX) {
+
+    const shouldRebaseToStart =
+      !enteringFromBelow && current <= ENTRY_REBASE_MAX;
+
+    if (shouldRebaseToStart) {
       activeStartRef.current = current;
-      // resetToStart behavior without changing visuals structure
+
       smoothObjRef.current.p = 0;
       targetPRef.current = 0;
-      lastPRef.current = 0;
+      lastPRef.current = 0; // ✅ correct ref
       stepIndexRef.current = 0;
       setStepIndex(0);
       renderAt(0);
     } else {
       activeStartRef.current = 0;
+      syncVisual(current);
     }
-  
+
     apply(current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
-  
+
+  // ----------------- ✅ scroll direction + early pre-snap (Fix #1) -----------------
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      scrollDirRef.current = y < lastScrollYRef.current ? -1 : 1;
+      lastScrollYRef.current = y;
+
+      if (scrollDirRef.current > 0) preSnapEndRef.current = false;
+
+      // ✅ FIX #1: while still INACTIVE, if user scrolls UP and this section becomes visible,
+      // snap to END immediately so you never see the old "10am" (or any) card flash.
+      if (
+        !activeScrollRef.current &&
+        scrollDirRef.current < 0 &&
+        !preSnapEndRef.current
+      ) {
+        const el = sectionRef.current;
+        if (el) {
+          const r = el.getBoundingClientRect();
+          const visible = r.bottom > 0 && r.top < window.innerHeight;
+          if (visible) {
+            preSnapEndRef.current = true;
+            syncVisualRef.current?.(1); // show "Rhythm by Rhythm" while entering from below
+          }
+        }
+      }
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  // ----------------- ✅ END scroll direction + early pre-snap -----------------
 
   // ----------------- layout: compute totalScroll -----------------
   useLayoutEffect(() => {
@@ -562,8 +628,24 @@ export default function RegenerationTimelineExternal({
 
   // ✅ keep visuals synced when inactive, lenis-smooth when active
   useMotionValueEvent(mv, "change", (v) => {
-    if (active) apply(v);
-    else syncVisual(v);
+    if (active) {
+      preSnapEndRef.current = false;
+      apply(v);
+      return;
+    }
+
+    // fallback: if scroll event didn't fire for some reason, still prevent old-card flash on return
+    if (scrollDirRef.current < 0 && !preSnapEndRef.current) {
+      preSnapEndRef.current = true;
+      syncVisual(1);
+      return;
+    }
+
+    // otherwise keep refs synced without forcing visuals to jump around
+    const pFinal = computeHeldP(clamp01(v));
+    smoothObjRef.current.p = pFinal;
+    targetPRef.current = pFinal;
+    lastPRef.current = pFinal;
   });
 
   // ----------------- ✅ AUDIO (UNCHANGED) -----------------
@@ -776,13 +858,9 @@ export default function RegenerationTimelineExternal({
               const isClaridaBase = item.baseIndex === baseStepsCount - 3;
 
               const isMobileBiology =
-                isMobile &&
-                isClaridaBase &&
-                item.mobileSplitPart === "biology";
+                isMobile && isClaridaBase && item.mobileSplitPart === "biology";
               const isMobileListens =
-                isMobile &&
-                isClaridaBase &&
-                item.mobileSplitPart === "listens";
+                isMobile && isClaridaBase && item.mobileSplitPart === "listens";
 
               return (
                 <div
@@ -812,7 +890,10 @@ export default function RegenerationTimelineExternal({
                           .map((word, i) => {
                             if (word.toLowerCase().includes("listens")) {
                               return (
-                                <span key={i} className="font-bold h2-text-bold">
+                                <span
+                                  key={i}
+                                  className="font-bold h2-text-bold"
+                                >
                                   {word}{" "}
                                 </span>
                               );
@@ -841,7 +922,9 @@ export default function RegenerationTimelineExternal({
                         {!isLastTwo && item.subtitle && (
                           <>
                             {" "}
-                            <span className="h2-text-bold">{item.subtitle}</span>
+                            <span className="h2-text-bold">
+                              {item.subtitle}
+                            </span>
                           </>
                         )}
                       </>
