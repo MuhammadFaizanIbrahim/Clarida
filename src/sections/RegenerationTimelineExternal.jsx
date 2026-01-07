@@ -497,12 +497,18 @@ export default function RegenerationTimelineExternal({
   useEffect(() => {
     if (!active) {
       stopRaf();
+  
+      // ✅ FIX: when leaving the section, snap visuals to the current (clamped) mv
+      // prevents showing the old step (e.g. 10am) for a frame when scrolling back
+      const current = clamp01(mv.get?.() ?? 0);
+      syncVisual(current);
+  
       return;
     }
-
+  
     const current = clamp01(mv.get?.() ?? 0);
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
-
+  
     if (enteringFromBelow) {
       activeStartRef.current = 0;
     } else if (current <= ENTRY_REBASE_MAX) {
@@ -517,10 +523,11 @@ export default function RegenerationTimelineExternal({
     } else {
       activeStartRef.current = 0;
     }
-
+  
     apply(current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
+  
 
   // ----------------- layout: compute totalScroll -----------------
   useLayoutEffect(() => {
