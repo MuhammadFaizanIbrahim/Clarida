@@ -258,10 +258,59 @@ export default function RegenerationTimelineExternal({
     }
   }, [progress, fallback]);
 
-  const handleScrollToEnd = () => {
-    const top = window.innerHeight * 4.5;
-    window.scrollBy({ top, behavior: "smooth" });
-  };
+    // ✅ Scroll button: jump to END of this section (start of next section's first screen)
+    const findHomepageScrollRoot = () => {
+      // walks up to the big <section style={{ height: `${TOTAL_VH}vh` }}>
+      let node = sectionRef.current;
+      while (node) {
+        if (node.tagName === "SECTION") {
+          const h = node.style?.height || "";
+          // the homepage scroll root is the only SECTION with a huge vh height inline
+          if (h.endsWith("vh") && parseFloat(h) > 100) return node;
+        }
+        node = node.parentElement;
+      }
+      return null;
+    };
+  
+    const handleScrollToEnd = () => {
+      const root = findHomepageScrollRoot();
+  
+      // fallback (shouldn't happen)
+      if (!root) {
+        window.scrollBy({ top: window.innerHeight, behavior: "smooth" });
+        return;
+      }
+  
+      // compute the same "range" as HomepageSectionBySectionScroll
+      const rect = root.getBoundingClientRect();
+      const start = rect.top + window.scrollY;
+      const height = root.offsetHeight;
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+      const end = start + height - vh;
+      const dist = end - start;
+  
+      if (dist <= 0) return;
+  
+      // 👇 These match HomepageSectionBySectionScroll VH values
+      // target = end of REGEN section transition (start of Activation HOLD = "first screen" of next section)
+      const TOTAL_VH = 3320;
+      const TO_ACTIVATION_FIRST_SCREEN_VH = 1820; // up to REGEN_TO_ACT end
+      const targetP = TO_ACTIVATION_FIRST_SCREEN_VH / TOTAL_VH;
+  
+      const yTarget = Math.min(end - 2, start + targetP * dist + 2);
+  
+      // only scroll forward
+      if (window.scrollY >= yTarget - 2) return;
+  
+      // use Lenis if available, otherwise native smooth scroll
+      if (window.lenis && typeof window.lenis.scrollTo === "function") {
+        window.lenis.scrollTo(yTarget, { duration: 1.0 });
+      } else {
+        window.scrollTo({ top: yTarget, left: 0, behavior: "smooth" });
+      }
+    };
+  
 
   // ✅ entry behavior
   const activeStartRef = useRef(0);
