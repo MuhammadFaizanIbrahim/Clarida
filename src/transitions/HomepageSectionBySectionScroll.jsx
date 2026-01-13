@@ -75,7 +75,7 @@ export default function HomepageSectionBySectionScroll() {
   // 🔧 lengths (vh)
   const VH = useMemo(
     () => ({
-      HERO_HOLD: 25,
+      HERO_HOLD: 5,
       HERO_TO_INTER: 75,
 
       INTER_HOLD: 550,
