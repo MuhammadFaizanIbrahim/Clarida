@@ -132,11 +132,6 @@ const magnetizeToCenters = (p, stepsLen) => {
 const SMOOTH_TIME = 0.22; // seconds (higher = smoother, floatier)
 const MAX_SPEED = 1.1; // progress per second (prevents skipping without "push")
 
-// ✅ NEW: limit how fast scroll input can advance inside this section
-// keeps magnetic/center-dwell even if the user scrolls very fast
-const RAW_MAX_SPEED = 0.2; // progress per second (caps fast wheel/trackpad)
-const RAW_MIN_FACTOR = 0.2; // near-center speed factor (stronger dwell)
-
 const easeInOutCubic = (t) =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
@@ -211,14 +206,6 @@ export default function RegenerationTimelineExternal({
   const [stepIndex, setStepIndex] = useState(0);
   const stepIndexRef = useRef(0);
 
-  // ✅ rate-limited raw progress (prevents skipping / keeps magnetic feel on fast scroll)
-  const desiredRawRef = useRef(0);
-  const rawRef = useRef(0);
-  const lastMvChangeTsRef = useRef(0); // ms timestamp of last mv change while active
-  const userInputTsRef = useRef(0); // last time user actually interacted
-  const lastMvValueRef = useRef(0); // last mv value we accepted
-
-
   // ✅ detect scroll direction + pre-snap helpers
   const scrollDirRef = useRef(1); // 1 = down, -1 = up
   const lastScrollYRef = useRef(
@@ -231,33 +218,6 @@ export default function RegenerationTimelineExternal({
   useEffect(() => {
     activeScrollRef.current = active;
   }, [active]);
-
-  useEffect(() => {
-    const mark = () => {
-      userInputTsRef.current = performance.now();
-    };
-
-    // real user actions that should allow mv updates
-    window.addEventListener("wheel", mark, { passive: true });
-    window.addEventListener("touchstart", mark, { passive: true });
-    window.addEventListener("touchmove", mark, { passive: true });
-    window.addEventListener("keydown", mark);
-    window.addEventListener("mousedown", mark);
-    window.addEventListener("pointerdown", mark);
-
-    // initialize
-    mark();
-
-    return () => {
-      window.removeEventListener("wheel", mark);
-      window.removeEventListener("touchstart", mark);
-      window.removeEventListener("touchmove", mark);
-      window.removeEventListener("keydown", mark);
-      window.removeEventListener("mousedown", mark);
-      window.removeEventListener("pointerdown", mark);
-    };
-  }, []);
-
 
   // ✅ prevents "jump to last card" when leaving to next section
   const exitLockRef = useRef(false);
@@ -370,8 +330,8 @@ export default function RegenerationTimelineExternal({
   const ENTRY_FROM_BELOW_MIN = 0.75;
 
   // ✅ Hold at start/end
-  const START_HOLD_P = 0.10;
-  const END_HOLD_P = 0.10;
+  const START_HOLD_P = 0.15;
+  const END_HOLD_P = 0.13;
 
   // ✅ internal progress
   const smoothObjRef = useRef({ p: 0 });
@@ -476,37 +436,6 @@ export default function RegenerationTimelineExternal({
       );
       lastTimeRef.current = now;
 
-      // ✅ stop "auto-advancing" once input goes idle (prevents multi-card glide)
-      const idleFor = now - (lastMvChangeTsRef.current || now);
-      if (idleFor > 120) {
-        // freeze desired to current raw so it won't keep catching up
-        desiredRawRef.current = rawRef.current;
-      }
-
-      // ✅ rate-limit incoming scroll progress so fast wheel/trackpad still dwells at centers
-      const desiredRaw = desiredRawRef.current;
-      let raw = rawRef.current;
-      const rawSlow = centerSlow(raw, timelineSteps.length);
-      const rawSpeed =
-        RAW_MAX_SPEED * (RAW_MIN_FACTOR + (1 - RAW_MIN_FACTOR) * (1 - rawSlow));
-      const rawMaxDelta = rawSpeed * dt;
-
-      const rawDelta = desiredRaw - raw;
-      if (Math.abs(rawDelta) > rawMaxDelta)
-        raw += Math.sign(rawDelta) * rawMaxDelta;
-      else raw = desiredRaw;
-
-      raw = clamp01(raw);
-      rawRef.current = raw;
-
-      const held = computeHeldP(raw);
-      const resisted = centerHoldResistance(
-        smoothObjRef.current.p,
-        held,
-        timelineSteps.length
-      );
-      targetPRef.current = resisted;
-
       const current = smoothObjRef.current.p;
       const target = targetPRef.current;
 
@@ -544,11 +473,7 @@ export default function RegenerationTimelineExternal({
 
   // ✅ hard sync (prevents flash)
   const syncVisual = (pRaw) => {
-    const pClamped = clamp01(pRaw);
-    desiredRawRef.current = pClamped;
-    rawRef.current = pClamped;
-
-    const pFinal = computeHeldP(pClamped);
+    const pFinal = computeHeldP(pRaw);
     smoothObjRef.current.p = pFinal;
     targetPRef.current = pFinal;
     lastPRef.current = pFinal;
@@ -593,16 +518,14 @@ export default function RegenerationTimelineExternal({
   };
 
   // ✅ on activate: decide whether to rebase or not
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!active) {
       stopRaf();
 
-      // ✅ keep internal refs synced WITHOUT rendering (prevents exit flash)
+      // keep internal refs synced WITHOUT rendering (prevents exit flash)
       const current = clamp01(mv.get?.() ?? 0);
-      desiredRawRef.current = current;
-      rawRef.current = current;
-
       const pFinal = computeHeldP(current);
+
       smoothObjRef.current.p = pFinal;
       targetPRef.current = pFinal;
       lastPRef.current = pFinal;
@@ -610,13 +533,11 @@ export default function RegenerationTimelineExternal({
       return;
     }
 
-    const current = clamp01(mv.get?.() ?? 0);
-    desiredRawRef.current = current;
-    rawRef.current = current;
-    lastMvValueRef.current = current;
-    userInputTsRef.current = performance.now();
-    lastMvChangeTsRef.current = performance.now();
+    // ✅ re-enter: clear exit lock + allow fresh pre-snap later
+    exitLockRef.current = false;
+    preSnapEndRef.current = false;
 
+    const current = clamp01(mv.get?.() ?? 0);
     const enteringFromBelow = current >= ENTRY_FROM_BELOW_MIN;
 
     const shouldRebaseToStart =
@@ -625,22 +546,18 @@ export default function RegenerationTimelineExternal({
     if (shouldRebaseToStart) {
       activeStartRef.current = current;
 
-      // resetToStart behavior without changing visuals structure
       smoothObjRef.current.p = 0;
       targetPRef.current = 0;
-      lastPRef.current = 0;
+      lastPRef.current = 0; // ✅ correct ref
       stepIndexRef.current = 0;
       setStepIndex(0);
       renderAt(0);
     } else {
       activeStartRef.current = 0;
-
-      // ✅ IMPORTANT: render immediately on re-enter (prevents any glimpse)
       syncVisual(current);
     }
 
-    // RAF computes target each frame based on desiredRawRef
-    startRaf();
+    apply(current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
@@ -711,45 +628,21 @@ export default function RegenerationTimelineExternal({
 
   // ✅ keep visuals synced when inactive, lenis-smooth when active
   useMotionValueEvent(mv, "change", (v) => {
-    const vClamped = clamp01(v);
-
     if (active) {
       preSnapEndRef.current = false;
-
-      const now = performance.now();
-
-      // ✅ IMPORTANT: ignore Lenis/momentum mv updates when user is not actively interacting
-      const INPUT_WINDOW_MS = 140; // tight window to kill inertia auto-advance
-      if (now - (userInputTsRef.current || 0) > INPUT_WINDOW_MS) {
-        // do NOT update desiredRawRef from momentum
-        startRaf();
-        return;
-      }
-
-      // ✅ accept this mv update as real user-driven
-      lastMvChangeTsRef.current = now;
-      lastMvValueRef.current = vClamped;
-
-      desiredRawRef.current = vClamped;
-      startRaf();
+      apply(v);
       return;
     }
 
-
-
-    // ✅ INACTIVE: if user is scrolling UP back into this section,
-    // pre-snap to END once so you never see the old "last active" card flash.
+    // fallback: if scroll event didn't fire for some reason, still prevent old-card flash on return
     if (scrollDirRef.current < 0 && !preSnapEndRef.current) {
       preSnapEndRef.current = true;
-      syncVisual(1); // show "Rhythm by Rhythm" while entering from below
+      syncVisual(1);
       return;
     }
 
-    // keep refs synced (no forced render here)
-    desiredRawRef.current = vClamped;
-    rawRef.current = vClamped;
-
-    const pFinal = computeHeldP(vClamped);
+    // otherwise keep refs synced without forcing visuals to jump around
+    const pFinal = computeHeldP(clamp01(v));
     smoothObjRef.current.p = pFinal;
     targetPRef.current = pFinal;
     lastPRef.current = pFinal;
