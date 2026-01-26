@@ -226,13 +226,13 @@ export default function GlobalCommunityImpactExternal({ progress = 0, active = t
       <canvas ref={canvasRef} className="h-full w-full block" />
 
       <div
-        ref={textRef}
+        // ref={textRef}
         className="absolute left-0 md:-left-40 lg:left-30 2xl:left-40 top-0 h-full flex flex-col gap-2 md:gap-8 justify-center items-center text-center w-full lg:w-[46%] z-20"
-        style={{
-          opacity: 0,
-          filter: "blur(14px)",
-          transition: "opacity 0.15s linear, filter 0.15s linear",
-        }}
+        // style={{
+        //   opacity: 0,
+        //   filter: "blur(14px)",
+        //   transition: "opacity 0.15s linear, filter 0.15s linear",
+        // }}
       >
         <h2 className="h2-text w-[400px] md:w-[600px] lg:w-[700px] 2xl:w-[950px]">
           One World. One <span className="h2-text-bold">Vision.</span>

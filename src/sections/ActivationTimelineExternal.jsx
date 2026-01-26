@@ -493,10 +493,10 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
         </div>
 
         {/* bottom rotating circle */}
-        <div className="pointer-events-none absolute -bottom-[21vh] md:-bottom-[30vh] lg:-bottom-[25vh] xl:-bottom-[43vh] 2xl:-bottom-[34vh] left-1/2 -translate-x-1/2 flex items-center justify-center">
+        <div className="pointer-events-none absolute -bottom-[22vh] md:-bottom-[30vh] lg:top-147 xl:top-175 2xl:top-180 left-1/2 -translate-x-1/2 flex items-center justify-center">
           <div
             ref={circleRef}
-            className="relative w-[300px] md:w-[430px] lg:w-[380px] xl:w-[400px] 2xl:w-[500px] aspect-square rounded-full border border-white/25"
+            className="relative w-[300px] md:w-[430px] lg:w-[380px] xl:w-[400px] 2xl:w-124 aspect-square rounded-full border border-white/25"
           >
             {timelineSteps.map((step, index) => {
               const angle = (index / stepsCount) * 360;
@@ -515,7 +515,7 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
                     <img
                       src={step.orbitIcon}
                       alt={`Dose ${index + 1} icon`}
-                      className="mb-8 md:mb-10 lg:mb-5 xl:mb-5 2xl:mb-10 h-10 w-10 md:h-15 md:w-15 lg:h-13 lg:w-13 2xl:h-20 2xl:w-20"
+                      className="mb-8 md:mb-10 lg:mb-7 xl:mb-5 2xl:mb-7 h-10 w-10 md:h-15 md:w-15 lg:h-13 lg:w-13 2xl:h-16 2xl:w-16"
                     />
                   )}
                   <span className="section-4-circle-numbers-text mb-32 md:mb-45 lg:mb-40 xl:mb-45 2xl:mb-55">

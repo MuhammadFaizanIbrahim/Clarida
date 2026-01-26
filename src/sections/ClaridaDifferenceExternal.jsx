@@ -235,7 +235,7 @@ export default function ClaridaDifferenceExternal({ progress }) {
     const text = textRef.current;
     if (!text) return;
 
-    const FADE_END = 0.65;
+    const FADE_END = 0.5;
     const finalT = p <= FADE_END ? p / FADE_END : 1;
 
     const maxBlur = 14;

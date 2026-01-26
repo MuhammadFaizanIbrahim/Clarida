@@ -17,7 +17,7 @@ const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
 const FIRST_FRAME_SRC = framePaths[0];
 
 // key frames where each step should peak
-const STEP_KEY_FRAMES = [80, 160, 230, 280, 330];
+const STEP_KEY_FRAMES = [40, 160, 230, 280, 330];
 const FIRST_STORY_FRAME = STEP_KEY_FRAMES[0];
 
 const storySteps = [
