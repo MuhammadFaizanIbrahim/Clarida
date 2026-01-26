@@ -189,6 +189,10 @@ const centerHoldResistance = (p, target, stepsLen) => {
   return p + (target - p) * (1 - resistance * (1 - CENTER_EXIT_RESISTANCE));
 };
 
+// ✅ NEW: step-by-step hard stop (scroll-gated)
+const STEP_LOCK_EPS_FRAC = 0.03; // how close to center counts as "arrived" (fraction of segment)
+const STEP_EXIT_THRESHOLD_FRAC = 0.26; // extra scroll required to unlock next step (fraction of segment)
+
 export default function RegenerationTimelineExternal({
   progress = 0,
   active = true,
@@ -340,6 +344,12 @@ export default function RegenerationTimelineExternal({
   const targetPRef = useRef(0);
   const rafRef = useRef(null);
 
+  // ✅ NEW: step lock state (hard stop + gated advance)
+  const lockStepRef = useRef(0);
+  const arrivedRef = useRef(false);
+  const gateAccumRef = useRef(0);
+  const lastInputBasePRef = useRef(0);
+
   const renderAt = (p) => {
     const track = trackRef.current;
     const timeBar = timeBarRef.current;
@@ -418,6 +428,27 @@ export default function RegenerationTimelineExternal({
     const blend = 0.75 * (1 - holdFade);
 
     return pHeld + (magnetized - pHeld) * blend;
+  };
+
+  // ✅ NEW: same mapping as computeHeldP, but WITHOUT magnet/slow blending.
+  // We need the "raw held space" to measure scroll intent consistently.
+  const computeBaseHeldP = (pRaw) => {
+    const pIncoming = clamp01(pRaw);
+
+    const startAt = activeStartRef.current || 0;
+    const denom = 1 - startAt;
+    const p = denom <= 0.00001 ? 0 : clamp01((pIncoming - startAt) / denom);
+
+    const denomHold = 1 - START_HOLD_P - END_HOLD_P;
+    let pHeld = p;
+
+    if (denomHold > 0) {
+      if (pHeld <= START_HOLD_P) pHeld = 0;
+      else if (pHeld >= 1 - END_HOLD_P) pHeld = 1;
+      else pHeld = (pHeld - START_HOLD_P) / denomHold;
+    }
+
+    return clamp01(pHeld);
   };
 
   const lastTimeRef = useRef(0);
@@ -506,10 +537,56 @@ export default function RegenerationTimelineExternal({
       return;
     }
 
-    const held = computeHeldP(pRaw);
+    // ✅ NEW: hard stop on each step + require extra scroll to move to next
+    const maxIndex = Math.max(timelineSteps.length - 1, 1);
+    const seg = 1 / maxIndex;
+
+    const baseP = computeBaseHeldP(pRaw);
+    const currentStep = Math.min(Math.max(lockStepRef.current, 0), maxIndex);
+    const center = currentStep / maxIndex;
+
+    // track scroll intent in held space
+    const dBase = baseP - lastInputBasePRef.current;
+    lastInputBasePRef.current = baseP;
+
+    // consider "arrived" once we're very near the center (in render space)
+    const curP = smoothObjRef.current.p;
+    const arrivedNow = Math.abs(curP - center) <= seg * STEP_LOCK_EPS_FRAC;
+
+    if (!arrivedRef.current && arrivedNow) {
+      arrivedRef.current = true;
+      gateAccumRef.current = 0;
+    }
+
+    // while arrived, accumulate scroll until threshold is met to advance
+    if (arrivedRef.current) {
+      gateAccumRef.current += dBase;
+
+      const need = seg * STEP_EXIT_THRESHOLD_FRAC;
+      if (Math.abs(gateAccumRef.current) >= need) {
+        const dir = gateAccumRef.current > 0 ? 1 : -1;
+        const nextStep = Math.min(Math.max(currentStep + dir, 0), maxIndex);
+
+        if (nextStep !== currentStep) {
+          lockStepRef.current = nextStep;
+          arrivedRef.current = false;
+          gateAccumRef.current = 0;
+        } else {
+          // at ends: just zero out so it doesn't "store up" force
+          gateAccumRef.current = 0;
+        }
+      }
+    } else {
+      // if not arrived yet, don't “bank” scroll; we want a clean gate once centered
+      gateAccumRef.current = 0;
+    }
+
+    const lockedCenter = lockStepRef.current / maxIndex;
+
+    // keep your existing smoothness driver + resistance curve
     const resisted = centerHoldResistance(
       smoothObjRef.current.p,
-      held,
+      lockedCenter,
       timelineSteps.length
     );
 
@@ -552,9 +629,25 @@ export default function RegenerationTimelineExternal({
       stepIndexRef.current = 0;
       setStepIndex(0);
       renderAt(0);
+
+      // ✅ NEW: reset step lock
+      lockStepRef.current = 0;
+      arrivedRef.current = false;
+      gateAccumRef.current = 0;
+      lastInputBasePRef.current = 0;
     } else {
       activeStartRef.current = 0;
       syncVisual(current);
+
+      // ✅ NEW: initialize step lock based on current position
+      {
+        const maxIndex = Math.max(timelineSteps.length - 1, 1);
+        const baseP = computeBaseHeldP(current);
+        lockStepRef.current = Math.round(baseP * maxIndex);
+        arrivedRef.current = false;
+        gateAccumRef.current = 0;
+        lastInputBasePRef.current = baseP;
+      }
     }
 
     apply(current);
