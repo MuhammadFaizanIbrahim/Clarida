@@ -249,31 +249,32 @@ const Hero = ({ active = true, exitT }) => {
 
   const reducedMotion = useReducedMotion();
 
- // TEXT (closer layer = moves more)
-const textExitY =
-!exitT || reducedMotion ? 0 : useTransform(exitT, [0, 1], [0, -110]);
+  // TEXT (closer layer = moves more)
+  const textExitY =
+    !exitT || reducedMotion ? 0 : useTransform(exitT, [0, 1], [0, -180]);
 
-const textExitScale =
-!exitT || reducedMotion ? 1 : useTransform(exitT, [0, 1], [1, 1.07]);
+  const textExitScale =
+    !exitT || reducedMotion ? 1 : useTransform(exitT, [0, 1], [1, 1.07]);
 
-const textExitOpacity =
-!exitT || reducedMotion
-  ? 1
-  : useTransform(exitT, [0, 0.10, 1], [1, 0.28, 0]);
+  const textExitOpacity =
+    !exitT || reducedMotion
+      ? 1
+      : useTransform(exitT, [0, 0.1, 1], [1, 0.28, 0]);
 
-// BACKGROUND (far layer = moves less)
-const bgExitY =
-!exitT || reducedMotion ? 0 : useTransform(exitT, [0, 1], [0, -45]);
+  // BACKGROUND (far layer = moves less)
+  const bgExitY =
+    !exitT || reducedMotion ? 0 : useTransform(exitT, [0, 1], [0, -45]);
 
-const bgExitOpacity =
-!exitT || reducedMotion ? 1 : useTransform(exitT, [0, 1], [1, 0]);
+  const bgExitOpacity =
+    !exitT || reducedMotion ? 1 : useTransform(exitT, [0, 1], [1, 0]);
 
-const bgExitScale =
-  !exitT || reducedMotion ? 1 : useTransform(exitT, [0, 1], [1.02, 1.06]);
+  const bgExitScale =
+    !exitT || reducedMotion ? 1 : useTransform(exitT, [0, 1], [1.02, 1.06]);
 
-const bgExitBlur =
-  !exitT || reducedMotion ? "blur(0px)" : useTransform(exitT, [0, 1], ["blur(0px)", "blur(2px)"]);
-
+  const bgExitBlur =
+    !exitT || reducedMotion
+      ? "blur(0px)"
+      : useTransform(exitT, [0, 1], ["blur(0px)", "blur(2px)"]);
 
   return (
     <section
@@ -283,7 +284,12 @@ const bgExitBlur =
       {/* Background Video */}
       <motion.video
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ y: bgExitY, opacity: bgExitOpacity }}
+        style={{
+          y: bgExitY,
+          opacity: bgExitOpacity,
+          scale: bgExitScale,
+          filter: bgExitBlur,
+        }}
         src={videoSrc || undefined}
         poster={posterSrc || undefined}
         autoPlay={!!videoSrc}
@@ -305,10 +311,9 @@ const bgExitBlur =
           background: `linear-gradient(180deg, rgba(13,31,45,0) 3.78%, var(--color-bg) ${
             isMobile ? "65%" : "25.95%"
           })`,
-          y: bgExitY,
-          opacity: bgExitOpacity,
-          scale: bgExitScale,
-          filter: bgExitBlur,
+          y: textExitY,
+          opacity: textExitOpacity,
+          scale: textExitScale,
         }}
         variants={containerVariants}
         initial="hidden"
