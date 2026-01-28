@@ -304,21 +304,32 @@ const Hero = ({ active = true, exitT }) => {
 
       {/* MAIN ANIMATED WRAPPER */}
       <motion.div
-        key={location.pathname}
-        className="relative z-10 px-5 md:px-8 lg:px-[7.813vw] py-12 md:py-8 lg:py-[3.906vw] 
+  key={location.pathname}
+  className="relative z-10 px-5 md:px-8 lg:px-[7.813vw] py-12 md:py-8 lg:py-[3.906vw]
   flex flex-col md:flex-row items-center justify-center md:justify-between w-full gap-2 md:gap-10 text-center md:text-left"
-        style={{
-          background: `linear-gradient(180deg, rgba(13,31,45,0) 3.78%, var(--color-bg) ${
-            isMobile ? "65%" : "25.95%"
-          })`,
-          y: textExitY,
-          opacity: textExitOpacity,
-          scale: textExitScale,
-        }}
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
+  variants={containerVariants}
+  initial="hidden"
+  animate="visible"
+>
+  {/* ✅ gradient layer (does NOT move) */}
+  <div
+    className="pointer-events-none absolute inset-0"
+    style={{
+      background: `linear-gradient(180deg, rgba(13,31,45,0) 3.78%, var(--color-bg) ${
+        isMobile ? "65%" : "25.95%"
+      })`,
+    }}
+  />
+
+  {/* ✅ content layer (moves) */}
+  <motion.div
+    className="relative z-10 w-full flex flex-col md:flex-row items-center justify-center md:justify-between gap-2 md:gap-10 text-center md:text-left"
+    style={{
+      y: textExitY,
+      opacity: textExitOpacity,
+      scale: textExitScale,
+    }}
+  >
         {/* LEFT */}
         <motion.div
           className="w-full flex flex-col gap-3 md:gap-6"
@@ -377,6 +388,7 @@ const Hero = ({ active = true, exitT }) => {
             </Button>
           </motion.div>
         </motion.div>
+      </motion.div>
       </motion.div>
     </section>
   );
