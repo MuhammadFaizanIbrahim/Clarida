@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import Button from "../components/Button";
 import { useMediaQuery } from "react-responsive";
-import { motion } from "framer-motion";
+import { motion, useTransform, useReducedMotion } from "framer-motion";
 import { useLocation } from "react-router-dom";
-import { itemVariants, containerVariants } from "../components/EntranceAnimation";
+import {
+  itemVariants,
+  containerVariants,
+} from "../components/EntranceAnimation";
 
-const Hero = ({ active = true }) => {
+const Hero = ({ active = true, exitT }) => {
   const isMobile = useMediaQuery({ maxWidth: 767 });
   const location = useLocation();
 
@@ -61,7 +64,11 @@ const Hero = ({ active = true }) => {
     }
 
     const startVolume =
-      typeof audio.volume === "number" ? audio.volume : targetVolume > 0 ? 0 : 1;
+      typeof audio.volume === "number"
+        ? audio.volume
+        : targetVolume > 0
+        ? 0
+        : 1;
     const totalSteps = Math.max(Math.round(durationMs / 50), 1); // ~20 FPS
     let step = 0;
     const volumeDiff = targetVolume - startVolume;
@@ -69,11 +76,9 @@ const Hero = ({ active = true }) => {
     // if fading IN, ensure playback starts
     if (targetVolume > 0 && audio.paused) {
       audio.loop = true;
-      audio
-        .play()
-        .catch(() => {
-          // autoplay blocked – nothing to do
-        });
+      audio.play().catch(() => {
+        // autoplay blocked – nothing to do
+      });
     }
 
     // if duration is 0, just jump
@@ -242,14 +247,43 @@ const Hero = ({ active = true }) => {
     };
   }, []);
 
+  const reducedMotion = useReducedMotion();
+
+ // TEXT (closer layer = moves more)
+const textExitY =
+!exitT || reducedMotion ? 0 : useTransform(exitT, [0, 1], [0, -110]);
+
+const textExitScale =
+!exitT || reducedMotion ? 1 : useTransform(exitT, [0, 1], [1, 1.07]);
+
+const textExitOpacity =
+!exitT || reducedMotion
+  ? 1
+  : useTransform(exitT, [0, 0.10, 1], [1, 0.28, 0]);
+
+// BACKGROUND (far layer = moves less)
+const bgExitY =
+!exitT || reducedMotion ? 0 : useTransform(exitT, [0, 1], [0, -45]);
+
+const bgExitOpacity =
+!exitT || reducedMotion ? 1 : useTransform(exitT, [0, 1], [1, 0]);
+
+const bgExitScale =
+  !exitT || reducedMotion ? 1 : useTransform(exitT, [0, 1], [1.02, 1.06]);
+
+const bgExitBlur =
+  !exitT || reducedMotion ? "blur(0px)" : useTransform(exitT, [0, 1], ["blur(0px)", "blur(2px)"]);
+
+
   return (
     <section
       ref={sectionRef}
       className="relative h-screen flex items-end justify-between text-white overflow-hidden"
     >
       {/* Background Video */}
-      <video
+      <motion.video
         className="absolute inset-0 w-full h-full object-cover"
+        style={{ y: bgExitY, opacity: bgExitOpacity }}
         src={videoSrc || undefined}
         poster={posterSrc || undefined}
         autoPlay={!!videoSrc}
@@ -257,7 +291,7 @@ const Hero = ({ active = true }) => {
         muted
         playsInline
         preload="none"
-      ></video>
+      />
 
       {/* 🔊 HERO AUDIO */}
       <audio ref={audioRef} src="/audios/hero.mp3" preload="auto" loop />
@@ -266,11 +300,15 @@ const Hero = ({ active = true }) => {
       <motion.div
         key={location.pathname}
         className="relative z-10 px-5 md:px-8 lg:px-[7.813vw] py-12 md:py-8 lg:py-[3.906vw] 
-        flex flex-col md:flex-row items-center justify-center md:justify-between w-full gap-2 md:gap-10 text-center md:text-left"
+  flex flex-col md:flex-row items-center justify-center md:justify-between w-full gap-2 md:gap-10 text-center md:text-left"
         style={{
           background: `linear-gradient(180deg, rgba(13,31,45,0) 3.78%, var(--color-bg) ${
             isMobile ? "65%" : "25.95%"
           })`,
+          y: bgExitY,
+          opacity: bgExitOpacity,
+          scale: bgExitScale,
+          filter: bgExitBlur,
         }}
         variants={containerVariants}
         initial="hidden"

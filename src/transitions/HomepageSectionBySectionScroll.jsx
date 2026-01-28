@@ -370,44 +370,42 @@ export default function HomepageSectionBySectionScroll() {
 
   // opacity envelopes
   const heroOpacity = prefersReducedMotion
-  ? 1
-  : useTransform(
-      scrollYProgress,
-      [
-        bounds.HERO_HOLD.start,
-        bounds.HERO_HOLD.end,
-        bounds.HERO_TO_INTER.start, // ✅ start fading as soon as transition starts
-        bounds.HERO_TO_INTER.start +
-          (bounds.HERO_TO_INTER.end - bounds.HERO_TO_INTER.start) * 0.16, // ✅ fade fast in first 8%
-        bounds.HERO_TO_INTER.end, // ✅ finish fade by end
-      ],
-      [1, 1, 1, 0.05, 0],
-      { clamp: true }
-    );
+    ? 1
+    : useTransform(
+        scrollYProgress,
+        [
+          bounds.HERO_HOLD.start,
+          bounds.HERO_HOLD.end,
+          bounds.HERO_TO_INTER.start, // ✅ start fading as soon as transition starts
+          bounds.HERO_TO_INTER.start +
+            (bounds.HERO_TO_INTER.end - bounds.HERO_TO_INTER.start) * 0.16, // ✅ fade fast in first 8%
+          bounds.HERO_TO_INTER.end, // ✅ finish fade by end
+        ],
+        [1, 1, 1, 0.05, 0],
+        { clamp: true }
+      );
 
-
-    const interOpacity = prefersReducedMotion
+  const interOpacity = prefersReducedMotion
     ? 1
     : useTransform(
         scrollYProgress,
         [
           bounds.HERO_TO_INTER.start,
           bounds.HERO_TO_INTER.end,
-  
+
           // ✅ hold fully visible until transition to next starts
           bounds.INTER_TO_TEST.start,
-  
+
           // ✅ dim quickly in first 8% of the transition
           bounds.INTER_TO_TEST.start +
             (bounds.INTER_TO_TEST.end - bounds.INTER_TO_TEST.start) * 0.16,
-  
+
           // ✅ finish fade by end of transition
           bounds.INTER_TO_TEST.end,
         ],
         [0, 1, 1, 0.05, 0],
         { clamp: true }
       );
-  
 
   const testOpacity = prefersReducedMotion
     ? 1
@@ -643,7 +641,7 @@ export default function HomepageSectionBySectionScroll() {
             }}
             className="absolute inset-0 z-10"
           >
-            <Hero active={activeIndex === 0} />
+            <Hero active={activeIndex === 0} exitT={heroToInterT} />
           </motion.div>
         )}
 
