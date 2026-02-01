@@ -314,8 +314,7 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
         }
         const startFrame = STEP_KEY_FRAMES[segIndex];
         const endFrame = STEP_KEY_FRAMES[segIndex + 1];
-        const localT =
-          (frameIndex - startFrame) / (endFrame - startFrame || 1);
+        const localT = (frameIndex - startFrame) / (endFrame - startFrame || 1);
 
         const startX = -segmentShift * segIndex;
         const endX = -segmentShift * (segIndex + 1);
@@ -331,13 +330,18 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       else if (frameIndex >= FADE_IN_END) barOpacity = 1;
       else
         barOpacity =
-          (frameIndex - FADE_IN_START) /
-          (FADE_IN_END - FADE_IN_START || 1);
+          (frameIndex - FADE_IN_START) / (FADE_IN_END - FADE_IN_START || 1);
 
       gsap.set(timeBar, { x: barX, opacity: barOpacity });
     }
 
-    const fadeFrames = 20;
+    const FADE_IN_FRAMES = 20;
+    const DEFAULT_HOLD_FRAMES = 0; // keep others same as current behavior
+    const DEFAULT_FADE_OUT = 20;
+
+    const FIRST_HOLD_FRAMES = 20; // 👈 make first text stay longer
+    const FIRST_FADE_OUT = 25;
+
     const maxY = 16;
 
     storySteps.forEach((_, idx) => {
@@ -346,10 +350,27 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       if (!textEl || !tickEl) return;
 
       const kf = STEP_KEY_FRAMES[idx];
-      const distance = Math.abs(frameIndex - kf);
+
+      // 👇 Conditional timing
+      const HOLD_FRAMES = idx === 0 ? FIRST_HOLD_FRAMES : DEFAULT_HOLD_FRAMES;
+      const FADE_OUT_FRAMES = idx === 0 ? FIRST_FADE_OUT : DEFAULT_FADE_OUT;
+
+      const fadeInStart = kf - FADE_IN_FRAMES;
+      const holdStart = kf;
+      const holdEnd = kf + HOLD_FRAMES;
+      const fadeOutEnd = holdEnd + FADE_OUT_FRAMES;
 
       let opacity = 0;
-      if (distance <= fadeFrames) opacity = 1 - distance / fadeFrames;
+
+      if (frameIndex >= fadeInStart && frameIndex < holdStart) {
+        const t = (frameIndex - fadeInStart) / FADE_IN_FRAMES;
+        opacity = t;
+      } else if (frameIndex >= holdStart && frameIndex <= holdEnd) {
+        opacity = 1;
+      } else if (frameIndex > holdEnd && frameIndex <= fadeOutEnd) {
+        const t = (frameIndex - holdEnd) / FADE_OUT_FRAMES;
+        opacity = 1 - t;
+      }
 
       const y = maxY * (1 - opacity);
 
