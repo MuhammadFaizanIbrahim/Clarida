@@ -20,7 +20,6 @@ import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
 import CurveDivider from "../components/CurveDivider";
 import { useLocation } from "react-router-dom";
 
-
 // ✅ Lazy-load heavy sections so they don't load until needed
 const ClaridaScrollStore = lazy(() => import("../sections/ClaridaScrollStore"));
 const LifestyleVisionExternal = lazy(() =>
@@ -219,43 +218,38 @@ export default function SecondPageSectionBySectionScroll() {
         { clamp: true }
       );
 
+  const makeOpacity = (inSeg, outSeg) =>
+    prefersReducedMotion
+      ? 1
+      : useTransform(
+          scrollYProgress,
+          [
+            inSeg.start,
+            inSeg.end, // fade IN
+            outSeg.start, // hold fully visible until next transition starts
+            outSeg.start + (outSeg.end - outSeg.start) * 0.25, // dim fast
+            outSeg.end, // fade OUT complete
+          ],
+          [0, 1, 1, 0.05, 0],
+          { clamp: true }
+        );
   const sciOpacity = prefersReducedMotion
     ? 1
     : useTransform(
         scrollYProgress,
-        [bounds.SCI_HOLD.start, bounds.SCI_HOLD.end, bounds.SCI_TO_STORE.end],
-        [1, 1, 0],
-        { clamp: true }
-      );
-
-  const storeOpacity = prefersReducedMotion
-    ? 1
-    : useTransform(
-        scrollYProgress,
         [
+          bounds.SCI_HOLD.start,
+          bounds.SCI_HOLD.end,
           bounds.SCI_TO_STORE.start,
+          bounds.SCI_TO_STORE.start +
+            (bounds.SCI_TO_STORE.end - bounds.SCI_TO_STORE.start) * 0.25,
           bounds.SCI_TO_STORE.end,
-          bounds.STORE_HOLD.end,
-          bounds.STORE_TO_LIFE.end,
         ],
-        [0, 1, 1, 0],
+        [1, 1, 1, 0.05, 0],
         { clamp: true }
       );
-
-  const lifeOpacity = prefersReducedMotion
-    ? 1
-    : useTransform(
-        scrollYProgress,
-        [
-          bounds.STORE_TO_LIFE.start,
-          bounds.STORE_TO_LIFE.end,
-          bounds.LIFE_HOLD.end,
-          bounds.LIFE_TO_FOOTER.end,
-        ],
-        [0, 1, 1, 0],
-        { clamp: true }
-      );
-
+  const storeOpacity = makeOpacity(bounds.SCI_TO_STORE, bounds.STORE_TO_LIFE);
+  const lifeOpacity = makeOpacity(bounds.STORE_TO_LIFE, bounds.LIFE_TO_FOOTER);
   const footerOpacity = prefersReducedMotion
     ? 1
     : useTransform(
@@ -354,20 +348,20 @@ export default function SecondPageSectionBySectionScroll() {
   useEffect(() => {
     // Only act when we explicitly request the Store section
     if (location.hash !== "#store") return;
-  
+
     const { start, end } = range;
     if (!start && !end) return;
-  
+
     const dist = end - start;
-  
+
     // Force the pair that includes Store so the lazy import starts immediately
     jumpingRef.current = true;
-  
+
     const storePair = [0, 1]; // SCI + STORE (safe pair to show)
     renderPairRef.current = storePair;
     setRenderPair(storePair);
     ensureMounted(storePair);
-  
+
     const scrollToY = (y, opts) => {
       if (window.lenis && typeof window.lenis.scrollTo === "function") {
         window.lenis.scrollTo(y, opts);
@@ -379,24 +373,23 @@ export default function SecondPageSectionBySectionScroll() {
         });
       }
     };
-  
+
     // Target: just inside STORE_HOLD (so you land fully in the Store section)
     const pTarget = Math.min(1, bounds.STORE_HOLD.start + 0.04);
     const yTarget = start + pTarget * dist;
-  
+
     // Give Suspense a moment to mount the lazy component (reduces black flash)
     const t = setTimeout(() => {
       scrollToY(yTarget, { duration: 1.0 });
-  
+
       if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
       jumpTimeoutRef.current = setTimeout(() => {
         jumpingRef.current = false;
       }, 1200);
     }, 80);
-  
+
     return () => clearTimeout(t);
   }, [location.hash, range, bounds]);
-  
 
   // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
   const [activeIndex, setActiveIndex] = useState(0);

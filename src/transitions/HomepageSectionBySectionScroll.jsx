@@ -368,7 +368,24 @@ export default function HomepageSectionBySectionScroll() {
         { clamp: true }
       );
 
+  const makeOpacity = (inSeg, outSeg) =>
+    prefersReducedMotion
+      ? 1
+      : useTransform(
+          scrollYProgress,
+          [
+            inSeg.start,
+            inSeg.end, // fade in
+            outSeg.start, // hold
+            outSeg.start + (outSeg.end - outSeg.start) * 0.25, // dim fast
+            outSeg.end, // finish fade out
+          ],
+          [0, 1, 1, 0.05, 0],
+          { clamp: true }
+        );
+
   // opacity envelopes
+  // Hero stays custom because it fades OUT but doesn't fade IN from a previous transition
   const heroOpacity = prefersReducedMotion
     ? 1
     : useTransform(
@@ -376,121 +393,30 @@ export default function HomepageSectionBySectionScroll() {
         [
           bounds.HERO_HOLD.start,
           bounds.HERO_HOLD.end,
-          bounds.HERO_TO_INTER.start, // ✅ start fading as soon as transition starts
+          bounds.HERO_TO_INTER.start,
           bounds.HERO_TO_INTER.start +
-            (bounds.HERO_TO_INTER.end - bounds.HERO_TO_INTER.start) * 0.25, // ✅ fade fast in first 8%
-          bounds.HERO_TO_INTER.end, // ✅ finish fade by end
+            (bounds.HERO_TO_INTER.end - bounds.HERO_TO_INTER.start) * 0.25,
+          bounds.HERO_TO_INTER.end,
         ],
         [1, 1, 1, 0.05, 0],
         { clamp: true }
       );
 
-  const interOpacity = prefersReducedMotion
-    ? 1
-    : useTransform(
-        scrollYProgress,
-        [
-          bounds.HERO_TO_INTER.start,
-          bounds.HERO_TO_INTER.end,
+  // Inter already matches your desired style
+  const interOpacity = makeOpacity(bounds.HERO_TO_INTER, bounds.INTER_TO_TEST);
 
-          // ✅ hold fully visible until transition to next starts
-          bounds.INTER_TO_TEST.start,
+  // ✅ Apply same style to all remaining sections
+  const testOpacity = makeOpacity(bounds.INTER_TO_TEST, bounds.TEST_TO_DIFF);
+  const diffOpacity = makeOpacity(bounds.TEST_TO_DIFF, bounds.DIFF_TO_REGEN);
+  const regenOpacity = makeOpacity(bounds.DIFF_TO_REGEN, bounds.REGEN_TO_ACT);
+  const actOpacity = makeOpacity(bounds.REGEN_TO_ACT, bounds.ACT_TO_GUAR);
+  const guarOpacity = makeOpacity(bounds.ACT_TO_GUAR, bounds.GUAR_TO_IMPACT);
+  const impactOpacity = makeOpacity(
+    bounds.GUAR_TO_IMPACT,
+    bounds.IMPACT_TO_FOOTER
+  );
 
-          // ✅ dim quickly in first 8% of the transition
-          bounds.INTER_TO_TEST.start +
-            (bounds.INTER_TO_TEST.end - bounds.INTER_TO_TEST.start) * 0.25,
-
-          // ✅ finish fade by end of transition
-          bounds.INTER_TO_TEST.end,
-        ],
-        [0, 1, 1, 0.05, 0],
-        { clamp: true }
-      );
-
-  const testOpacity = prefersReducedMotion
-    ? 1
-    : useTransform(
-        scrollYProgress,
-        [
-          bounds.INTER_TO_TEST.start,
-          bounds.INTER_TO_TEST.end,
-          bounds.TEST_HOLD.end,
-          bounds.TEST_TO_DIFF.end,
-        ],
-        [0, 1, 1, 0],
-        { clamp: true }
-      );
-
-  const diffOpacity = prefersReducedMotion
-    ? 1
-    : useTransform(
-        scrollYProgress,
-        [
-          bounds.TEST_TO_DIFF.start,
-          bounds.TEST_TO_DIFF.end,
-          bounds.DIFF_HOLD.end,
-          bounds.DIFF_TO_REGEN.end,
-        ],
-        [0, 1, 1, 0],
-        { clamp: true }
-      );
-
-  const regenOpacity = prefersReducedMotion
-    ? 1
-    : useTransform(
-        scrollYProgress,
-        [
-          bounds.DIFF_TO_REGEN.start,
-          bounds.DIFF_TO_REGEN.end,
-          bounds.REGEN_HOLD.end,
-          bounds.REGEN_TO_ACT.end,
-        ],
-        [0, 1, 1, 0],
-        { clamp: true }
-      );
-
-  const actOpacity = prefersReducedMotion
-    ? 1
-    : useTransform(
-        scrollYProgress,
-        [
-          bounds.REGEN_TO_ACT.start,
-          bounds.REGEN_TO_ACT.end,
-          bounds.ACT_HOLD.end,
-          bounds.ACT_TO_GUAR.end,
-        ],
-        [0, 1, 1, 0],
-        { clamp: true }
-      );
-
-  const guarOpacity = prefersReducedMotion
-    ? 1
-    : useTransform(
-        scrollYProgress,
-        [
-          bounds.ACT_TO_GUAR.start,
-          bounds.ACT_TO_GUAR.end,
-          bounds.GUAR_HOLD.end,
-          bounds.GUAR_TO_IMPACT.end,
-        ],
-        [0, 1, 1, 0],
-        { clamp: true }
-      );
-
-  const impactOpacity = prefersReducedMotion
-    ? 1
-    : useTransform(
-        scrollYProgress,
-        [
-          bounds.GUAR_TO_IMPACT.start,
-          bounds.GUAR_TO_IMPACT.end,
-          bounds.IMPACT_HOLD.end,
-          bounds.IMPACT_TO_FOOTER.end,
-        ],
-        [0, 1, 1, 0],
-        { clamp: true }
-      );
-
+  // Footer: fades IN and stays (no "next transition" to fade out into)
   const footerOpacity = prefersReducedMotion
     ? 1
     : useTransform(
