@@ -18,6 +18,8 @@ import {
 import { useLenisSmoothScroll } from "../components/LenisSmoothScroll.jsx";
 
 import CurveDivider from "../components/CurveDivider";
+import { useLocation } from "react-router-dom";
+
 
 // ✅ Lazy-load heavy sections so they don't load until needed
 const ClaridaScrollStore = lazy(() => import("../sections/ClaridaScrollStore"));
@@ -57,6 +59,7 @@ export default function SecondPageSectionBySectionScroll() {
 
   const sectionRef = useRef(null);
   const prefersReducedMotion = useReducedMotion();
+  const location = useLocation();
 
   const VH = useMemo(
     () => ({
@@ -347,6 +350,53 @@ export default function SecondPageSectionBySectionScroll() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range, bounds]);
+
+  useEffect(() => {
+    // Only act when we explicitly request the Store section
+    if (location.hash !== "#store") return;
+  
+    const { start, end } = range;
+    if (!start && !end) return;
+  
+    const dist = end - start;
+  
+    // Force the pair that includes Store so the lazy import starts immediately
+    jumpingRef.current = true;
+  
+    const storePair = [0, 1]; // SCI + STORE (safe pair to show)
+    renderPairRef.current = storePair;
+    setRenderPair(storePair);
+    ensureMounted(storePair);
+  
+    const scrollToY = (y, opts) => {
+      if (window.lenis && typeof window.lenis.scrollTo === "function") {
+        window.lenis.scrollTo(y, opts);
+      } else {
+        window.scrollTo({
+          top: y,
+          left: 0,
+          behavior: opts?.immediate ? "auto" : "smooth",
+        });
+      }
+    };
+  
+    // Target: just inside STORE_HOLD (so you land fully in the Store section)
+    const pTarget = Math.min(1, bounds.STORE_HOLD.start + 0.04);
+    const yTarget = start + pTarget * dist;
+  
+    // Give Suspense a moment to mount the lazy component (reduces black flash)
+    const t = setTimeout(() => {
+      scrollToY(yTarget, { duration: 1.0 });
+  
+      if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+      jumpTimeoutRef.current = setTimeout(() => {
+        jumpingRef.current = false;
+      }, 1200);
+    }, 80);
+  
+    return () => clearTimeout(t);
+  }, [location.hash, range, bounds]);
+  
 
   // ✅ FIX: switch actives using TRANSITION STARTS (not ENDS)
   const [activeIndex, setActiveIndex] = useState(0);

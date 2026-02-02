@@ -24,8 +24,10 @@ const Header = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // ✅ If we’re navigating to a hash (e.g. /store#early-access), do NOT force top
+    if (location.hash) return;
+
     const scrollNow = () => {
-      // if using Lenis globally
       if (window.lenis && typeof window.lenis.scrollTo === "function") {
         window.lenis.scrollTo(0, { immediate: true });
       } else {
@@ -33,13 +35,11 @@ const Header = () => {
       }
     };
 
-    // run once immediately
     scrollNow();
-    // run again shortly after layout / GSAP / Lenis settle
     const id = setTimeout(scrollNow, 50);
 
     return () => clearTimeout(id);
-  }, [location.pathname]);
+  }, [location.pathname, location.hash]);
 
   useEffect(() => {
     if (
@@ -221,7 +221,7 @@ const Header = () => {
             <Link to="#" className="menu-text">
               About
             </Link>
-            <Link to="/store" className="menu-text">
+            <Link to="/store#store" className="menu-text">
               Store
             </Link>
           </nav>
@@ -362,22 +362,13 @@ const Header = () => {
             </div>
 
             {/* These close the menu on click */}
-            <Link
-              to="#"
-              onClick={() => closeMenuWithDelay()}
-            >
+            <Link to="#" onClick={() => closeMenuWithDelay()}>
               Vision Guide AI
             </Link>
-            <Link
-              to="#"
-              onClick={() => closeMenuWithDelay()}
-            >
+            <Link to="#" onClick={() => closeMenuWithDelay()}>
               About Clarida
             </Link>
-            <Link
-              to="/store"
-              onClick={() => closeMenuWithDelay()}
-            >
+            <Link to="/store#store" onClick={() => closeMenuWithDelay()}>
               Early Access/Store
             </Link>
           </div>
@@ -395,11 +386,7 @@ const Header = () => {
               }}
             >
               Begin your journey
-              <img
-                src="icons/arrowIcon.svg"
-                alt=""
-                className="rotate-270"
-              />
+              <img src="icons/arrowIcon.svg" alt="" className="rotate-270" />
             </Button>
           </div>
         </div>
