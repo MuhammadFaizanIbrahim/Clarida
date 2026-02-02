@@ -184,7 +184,7 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
 
   // ✅ Hold at start/end so arc transition can finish before timeline starts moving
   const START_HOLD_P = 0.20;
-  const END_HOLD_P = 0.15;
+  const END_HOLD_P = 0.08;
 
   // ✅ internal progress
   const smoothObjRef = useRef({ p: 0 });
@@ -493,7 +493,7 @@ export default function ActivationTimelineExternal({ progress = 0, active = true
         </div>
 
         {/* bottom rotating circle */}
-        <div className="pointer-events-none absolute -bottom-[22vh] md:-bottom-[30vh] lg:top-147 xl:top-175 2xl:top-180 left-1/2 -translate-x-1/2 flex items-center justify-center">
+        <div className="pointer-events-none absolute -bottom-[22vh] md:-bottom-[30vh] lg:top-147 xl:top-175 2xl:top-200 left-1/2 -translate-x-1/2 flex items-center justify-center">
           <div
             ref={circleRef}
             className="relative w-[300px] md:w-[430px] lg:w-[380px] xl:w-[400px] 2xl:w-124 aspect-square rounded-full border border-white/25"

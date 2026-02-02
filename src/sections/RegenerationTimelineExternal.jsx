@@ -331,7 +331,7 @@ export default function RegenerationTimelineExternal({
 
   // ✅ Hold at start/end
   const START_HOLD_P = 0.15;
-  const END_HOLD_P = 0.13;
+  const END_HOLD_P = 0.10;
 
   // ✅ internal progress
   const smoothObjRef = useRef({ p: 0 });

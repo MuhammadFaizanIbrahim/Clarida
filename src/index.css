@@ -100,7 +100,7 @@ html, body {
   --NamesText-line-height: normal;
   --NamesText-letter-spacing: 1px;
 
-  --ScrollText-size: 12px
+  --ScrollText-size: 12px;
   --ScrollText-weight: 500;
   --ScrollText-line-height: 216.667%; /* 26px */
   --ScrollText-letter-spacing: 0%;
