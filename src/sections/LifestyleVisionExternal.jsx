@@ -252,7 +252,7 @@ export default function LifestyleVisionExternal({
     }
 
     const maxBlur = 14;
-    const FADE_END = 0.65;
+    const FADE_END = 0.35;
 
     let finalT = 0;
     if (p <= FADE_END) finalT = p / FADE_END;
