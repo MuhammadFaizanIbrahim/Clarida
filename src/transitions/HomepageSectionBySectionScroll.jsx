@@ -87,10 +87,10 @@ export default function HomepageSectionBySectionScroll() {
       DIFF_HOLD: 220,
       DIFF_TO_REGEN: 75,
 
-      REGEN_HOLD: 530,
+      REGEN_HOLD: 550,
       REGEN_TO_ACT: 75,
 
-      ACT_HOLD: 530,
+      ACT_HOLD: 550,
       ACT_TO_GUAR: 75,
 
       GUAR_HOLD: 570,
