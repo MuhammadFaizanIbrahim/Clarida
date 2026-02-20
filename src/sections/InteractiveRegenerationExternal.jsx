@@ -7,28 +7,27 @@ import Button from "../components/Button.jsx";
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
-const TOTAL_FRAMES = 360;
+const TOTAL_FRAMES = 625;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/InteractiveRegeneration/frame_${index}.webp`;
+  return `/frames/InteractiveRegenerationFull/frame_${index}.webp`;
 });
 
 const FIRST_FRAME_SRC = framePaths[0];
 
-// key frames where each step should peak
-const STEP_KEY_FRAMES = [40, 160, 230, 280, 330];
-const FIRST_STORY_FRAME = STEP_KEY_FRAMES[0];
+const STEP_KEY_FRAMES = [40, 140, 240, 330, 440, 545];
 
 const storySteps = [
   { text: "The zebrafish contains one of biology's deepest secrets:" },
-  { text: "How to regrow the retina itself." },
+  { text: "How to regrow its own retina." },
+  { text: "When a zebrafish's retina is damaged" },
   {
-    text: "When its retina is damaged, a special kind of cell—Müller glia—awakens.",
+    text: "a unique cell (Müller glia) awakens and begins rebuilding",
   },
   { text: "The zebrafish's healing isn't random, it's regeneration." },
   {
-    text: "Clarida isn't just a product—it's a regenerative rhythm.",
+    text: "Clarida isn't just a product, it's a regenerative rhythm.",
     showButton: true,
   },
 ];
@@ -37,8 +36,6 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
   const sectionRef = useRef(null);
   const canvasRef = useRef(null);
   const textRefs = useRef([]);
-  const timeBarRef = useRef(null);
-  const tickRefs = useRef([]);
 
   const preloadedFramesRef = useRef([]);
   const lastFrameIndexRef = useRef(-1);
@@ -46,35 +43,14 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
   const logicalWidthRef = useRef(0);
   const logicalHeightRef = useRef(0);
 
-  // audio
   const audioRef = useRef(null);
   const fadeIntervalRef = useRef(null);
 
   const [isAudioOn, setIsAudioOn] = useState(false);
 
-  // viewport width for bar calculations
-  const [viewportWidth, setViewportWidth] = useState(
-    typeof window !== "undefined" ? window.innerWidth : 1024
-  );
-  const viewportWidthRef = useRef(
-    typeof window !== "undefined" ? window.innerWidth : 1024
-  );
+  const lastPaintedIndexRef = useRef(-1);
+  const lastRequestedIndexRef = useRef(-1);
 
-  useEffect(() => {
-    const onResize = () => {
-      const w = window.innerWidth;
-      setViewportWidth(w);
-      viewportWidthRef.current = w;
-    };
-    window.addEventListener("resize", onResize);
-    window.addEventListener("orientationchange", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("orientationchange", onResize);
-    };
-  }, []);
-
-  // sync with global audio toggle
   useEffect(() => {
     if (
       typeof window !== "undefined" &&
@@ -96,7 +72,6 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       window.removeEventListener("clarida-audio-toggle", handleAudioToggle);
   }, []);
 
-  // fade helper
   const clearFadeInterval = () => {
     if (fadeIntervalRef.current) {
       clearInterval(fadeIntervalRef.current);
@@ -115,6 +90,7 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
         : targetVolume > 0
         ? 0
         : 1;
+
     const totalSteps = Math.max(Math.round(durationMs / 50), 1);
     let step = 0;
     const diff = targetVolume - startVolume;
@@ -139,7 +115,6 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     }, 50);
   };
 
-  // play/pause based on active + global toggle
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -147,8 +122,6 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     const shouldPlay = !!active && !!isAudioOn;
     if (shouldPlay) fadeTo(audio, 1, 600);
     else fadeTo(audio, 0, 800);
-
-    return () => {};
   }, [active, isAudioOn]);
 
   useEffect(() => {
@@ -162,7 +135,6 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     };
   }, []);
 
-  // preload frames (base preload only)
   useEffect(() => {
     let cancelled = false;
     preloadedFramesRef.current = new Array(TOTAL_FRAMES).fill(null);
@@ -183,11 +155,6 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     };
   }, []);
 
-  // ✅ Safe draw support refs (prevents flashing to early frames)
-  const lastPaintedIndexRef = useRef(-1);
-  const lastRequestedIndexRef = useRef(-1);
-
-  // ✅ draw that never falls back to far "starting frames"
   const drawFrame = (desiredIndex) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -200,8 +167,8 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     if (!w || !h || !frames?.length) return null;
 
     const SEARCH_RADIUS = 28;
-
     let pick = -1;
+
     if (frames[desiredIndex]) {
       pick = desiredIndex;
     } else {
@@ -226,7 +193,6 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       }
     }
 
-    // Nothing near desired is loaded yet -> keep current canvas
     if (pick < 0) return null;
 
     const img = frames[pick];
@@ -234,13 +200,13 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
 
     ctx2d.clearRect(0, 0, w, h);
 
-    // cover math
     const imgW = img.naturalWidth;
     const imgH = img.naturalHeight;
     const imgAspect = imgW / imgH;
     const canvasAspect = w / h;
 
     let drawW, drawH, offsetX, offsetY;
+
     if (imgAspect > canvasAspect) {
       drawH = h;
       drawW = drawH * imgAspect;
@@ -259,14 +225,11 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     return pick;
   };
 
-  // ✅ single renderer (no priority loader)
   const renderFromProgress = (pRaw, forceDraw = false) => {
     const p = clamp01(pRaw);
-
     const lastIndex = TOTAL_FRAMES - 1;
     const frameIndex = Math.min(lastIndex, Math.floor(p * lastIndex));
 
-    // keep poster synced (prevents any background flash)
     const sec = sectionRef.current;
     if (sec) {
       sec.style.backgroundImage = `url(${framePaths[frameIndex]})`;
@@ -274,112 +237,77 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
 
     lastRequestedIndexRef.current = frameIndex;
 
-    // draw safely (won't flash early frames)
     if (forceDraw || frameIndex !== lastFrameIndexRef.current) {
       const painted = drawFrame(frameIndex);
-
-      // only advance if we actually painted something
       if (painted !== null) {
         lastFrameIndexRef.current = painted;
-
-        // keep poster synced to what we actually showed
         if (sec) sec.style.backgroundImage = `url(${framePaths[painted]})`;
       }
     }
 
-    // ---- timebar + text steps ----
-    const timeBar = timeBarRef.current;
-    const vw = viewportWidthRef.current;
-    const segmentShift = vw;
+    // 🔥 Updated Cinematic Text Animation
+    const STEP_TIMINGS = [
+      { enter: 40, pause: 40, exit: 40 }, // 1️⃣ longer intro
+      { enter: 35, pause: 40, exit: 35 }, // 2️⃣ medium
+      { enter: 40, pause: 40, exit: 40 }, // 3️⃣ slightly longer
+      { enter: 40, pause: 60, exit: 45 }, // 4️⃣ longer dramatic line
+      { enter: 40, pause: 50, exit: 40 }, // 5️⃣ normal
+      { enter: 40, pause: 50, exit: 40 }, // 6️⃣ CTA stays longest
+    ];
 
-    if (timeBar) {
-      const lastKeyFrame = STEP_KEY_FRAMES[STEP_KEY_FRAMES.length - 1];
-
-      let barX;
-      if (frameIndex < FIRST_STORY_FRAME) {
-        const t = frameIndex / FIRST_STORY_FRAME;
-        barX = lerp(vw, 0, clamp01(t));
-      } else if (frameIndex >= lastKeyFrame) {
-        barX = -segmentShift * (STEP_KEY_FRAMES.length - 1);
-      } else {
-        let segIndex = 0;
-        for (let i = 0; i < STEP_KEY_FRAMES.length - 1; i++) {
-          if (
-            frameIndex >= STEP_KEY_FRAMES[i] &&
-            frameIndex < STEP_KEY_FRAMES[i + 1]
-          ) {
-            segIndex = i;
-            break;
-          }
-        }
-        const startFrame = STEP_KEY_FRAMES[segIndex];
-        const endFrame = STEP_KEY_FRAMES[segIndex + 1];
-        const localT = (frameIndex - startFrame) / (endFrame - startFrame || 1);
-
-        const startX = -segmentShift * segIndex;
-        const endX = -segmentShift * (segIndex + 1);
-        barX = lerp(startX, endX, clamp01(localT));
-      }
-
-      // fade-in of the bar
-      const FADE_IN_START = FIRST_STORY_FRAME - 15;
-      const FADE_IN_END = FIRST_STORY_FRAME + 5;
-
-      let barOpacity = 0;
-      if (frameIndex <= FADE_IN_START) barOpacity = 0;
-      else if (frameIndex >= FADE_IN_END) barOpacity = 1;
-      else
-        barOpacity =
-          (frameIndex - FADE_IN_START) / (FADE_IN_END - FADE_IN_START || 1);
-
-      gsap.set(timeBar, { x: barX, opacity: barOpacity });
-    }
-
-    const FADE_IN_FRAMES = 20;
-    const DEFAULT_HOLD_FRAMES = 0; // keep others same as current behavior
-    const DEFAULT_FADE_OUT = 20;
-
-    const FIRST_HOLD_FRAMES = 20; // 👈 make first text stay longer
-    const FIRST_FADE_OUT = 25;
-
-    const maxY = 16;
+    // Slightly reduce travel intensity for smoother motion
+    const START_Y = 200;
+    const PAUSE_Y = 100;
+    const EXIT_Y = -10;
 
     storySteps.forEach((_, idx) => {
       const textEl = textRefs.current[idx];
-      const tickEl = tickRefs.current[idx];
-      if (!textEl || !tickEl) return;
+      if (!textEl) return;
 
       const kf = STEP_KEY_FRAMES[idx];
 
-      // 👇 Conditional timing
-      const HOLD_FRAMES = idx === 0 ? FIRST_HOLD_FRAMES : DEFAULT_HOLD_FRAMES;
-      const FADE_OUT_FRAMES = idx === 0 ? FIRST_FADE_OUT : DEFAULT_FADE_OUT;
+      const { enter, pause, exit } = STEP_TIMINGS[idx];
 
-      const fadeInStart = kf - FADE_IN_FRAMES;
-      const holdStart = kf;
-      const holdEnd = kf + HOLD_FRAMES;
-      const fadeOutEnd = holdEnd + FADE_OUT_FRAMES;
+      const enterStart = kf - enter;
+      const pauseStart = kf;
+      const pauseEnd = pauseStart + pause;
+      const exitEnd = pauseEnd + exit;
 
       let opacity = 0;
+      let y = START_Y;
 
-      if (frameIndex >= fadeInStart && frameIndex < holdStart) {
-        const t = (frameIndex - fadeInStart) / FADE_IN_FRAMES;
-        opacity = t;
-      } else if (frameIndex >= holdStart && frameIndex <= holdEnd) {
-        opacity = 1;
-      } else if (frameIndex > holdEnd && frameIndex <= fadeOutEnd) {
-        const t = (frameIndex - holdEnd) / FADE_OUT_FRAMES;
-        opacity = 1 - t;
+      // Enter
+      if (frameIndex >= enterStart && frameIndex < pauseStart) {
+        const t = clamp01((frameIndex - enterStart) / enter);
+        const eased = t * t * (3 - 2 * t); // smoothstep (very smooth)
+        opacity = eased;
+        y = START_Y * (1 - eased) + PAUSE_Y * eased;
       }
 
-      const y = maxY * (1 - opacity);
+      // Pause
+      else if (frameIndex >= pauseStart && frameIndex <= pauseEnd) {
+        opacity = 1;
+        y = PAUSE_Y;
+      }
+
+      // Exit
+      else if (frameIndex > pauseEnd && frameIndex <= exitEnd) {
+        const t = clamp01((frameIndex - pauseEnd) / exit);        
+        const eased = t * t * (3 - 2 * t); // same smooth curve
+        opacity = 1 - eased;
+        y = PAUSE_Y + (EXIT_Y - PAUSE_Y) * eased;
+      }
+
+      // After Exit — keep it gone and above
+      else if (frameIndex > exitEnd) {
+        opacity = 0;
+        y = EXIT_Y;
+      }
 
       gsap.set(textEl, { opacity, y });
-      gsap.set(tickEl, { opacity: 1, scale: opacity > 0.7 ? 1.1 : 1 });
     });
   };
 
-  // canvas sizing (viewport-based)
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -398,82 +326,28 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       canvas.height = height * dpr;
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // ✅ draw correct frame for current progress (not frame 0)
       const current = clamp01(progress?.get?.() ?? 0);
       renderFromProgress(current, true);
-
-      // timebar starts offscreen right
-      const timeBar = timeBarRef.current;
-      if (timeBar)
-        gsap.set(timeBar, { x: viewportWidthRef.current, opacity: 0 });
     };
 
     resize();
     window.addEventListener("resize", resize);
     window.addEventListener("orientationchange", resize);
+
     return () => {
       window.removeEventListener("resize", resize);
       window.removeEventListener("orientationchange", resize);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ on (re)entering the section, hard-sync immediately
-  useLayoutEffect(() => {
-    if (!active) return;
-    const current = clamp01(progress?.get?.() ?? 0);
-    renderFromProgress(current, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
-
-  // ✅ initial mount sync
-  useLayoutEffect(() => {
-    const current = clamp01(progress?.get?.() ?? 0);
-    renderFromProgress(current, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // drive everything from external progress
   useMotionValueEvent(progress, "change", (pRaw) => {
     renderFromProgress(pRaw, false);
   });
 
-  // tick geometry
-  const tickCount = storySteps.length;
-  const timeBarWidthVW = tickCount * 100;
-
-  const getTickLeft = (index) => {
-    const w = viewportWidth;
-    const trackWidthVW = timeBarWidthVW;
-    let lineStartVW;
-    let lineEndVW;
-
-    if (w < 768) {
-      const lineLeftPx = 16 * 16; // 16rem
-      const lineRightVW = 34.5;
-      lineStartVW = (lineLeftPx / w) * 100;
-      lineEndVW = trackWidthVW - lineRightVW;
-    } else if (w < 1024) {
-      lineStartVW = 55.87;
-      lineEndVW = trackWidthVW - 44.1;
-    } else if (w < 1536) {
-      lineStartVW = 56.2;
-      lineEndVW = trackWidthVW - 44.1;
-    } else {
-      lineStartVW = 54.2;
-      lineEndVW = trackWidthVW - 45.73;
-    }
-
-    const span = lineEndVW - lineStartVW;
-    const step = span / (tickCount - 1);
-    const pos = lineStartVW + index * step;
-    return `${pos}vw`;
-  };
-
   return (
     <section
       ref={sectionRef}
-      className="relative h-screen w-screen overflow-hidden flex items-center justify_center"
+      className="relative h-screen w-screen overflow-hidden flex items-center justify-center"
       style={{
         backgroundImage: `url(${FIRST_FRAME_SRC})`,
         backgroundSize: "cover",
@@ -489,7 +363,7 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
         loop
       />
 
-      <div className="absolute inset-0 bg-black/30 md:bg_black/35 lg:bg-black/40 pointer-events-none" />
+      <div className="absolute inset-0 bg-black/30 md:bg-black/35 lg:bg-black/40 pointer-events-none" />
 
       {storySteps.map((step, index) => (
         <div
@@ -516,35 +390,6 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
           )}
         </div>
       ))}
-
-      <div
-        ref={timeBarRef}
-        className="pointer-events-none absolute bottom-8 md:bottom-10 lg:bottom-6 2xl:bottom-14 -left-17 md:-left-17 lg:-left-21 z-20"
-        style={{ width: `${timeBarWidthVW}vw` }}
-      >
-        <div className="relative h-[60px]">
-          <div
-            className="absolute h-px left-64 md:left-[55.87vw] lg:left-[56.2vw] 2xl:left-[54.2vw] right-[34.5vw] md:right-[44.1vw] 2xl:right-[45.73vw] bg-(--color-text)"
-            style={{ top: "50%", transform: "translateY(-50%)" }}
-          />
-
-          {storySteps.map((_, index) => (
-            <div
-              key={index}
-              ref={(el) => (tickRefs.current[index] = el)}
-              className="absolute flex flex-col items-center top-[34%] md:top-[26%] lg:top-[25%]"
-              style={{
-                left: getTickLeft(index),
-                transform: "translateY(-50%)",
-                opacity: 1,
-                transition: "transform 0.15s linear",
-              }}
-            >
-              <div className="h-6 md:h-8 w-px bg-(--color-text) mb-1" />
-            </div>
-          ))}
-        </div>
-      </div>
     </section>
   );
 }
