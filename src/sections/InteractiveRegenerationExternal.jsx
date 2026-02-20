@@ -247,7 +247,7 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
 
     // 🔥 Updated Cinematic Text Animation
     const STEP_TIMINGS = [
-      { enter: 40, pause: 40, exit: 40 }, // 1️⃣ longer intro
+      { enter: 40, pause: 55, exit: 40 }, // 1️⃣ longer intro
       { enter: 35, pause: 40, exit: 35 }, // 2️⃣ medium
       { enter: 40, pause: 40, exit: 40 }, // 3️⃣ slightly longer
       { enter: 40, pause: 60, exit: 45 }, // 4️⃣ longer dramatic line
