@@ -16,7 +16,7 @@ const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
 
 const FIRST_FRAME_SRC = framePaths[0];
 
-const STEP_KEY_FRAMES = [40, 140, 230, 330, 440, 527];
+const STEP_KEY_FRAMES = [40, 140, 245, 330, 440, 527];
 
 const storySteps = [
   { text: "The zebrafish contains one of biology's deepest secrets:" },
@@ -248,8 +248,8 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     // 🔥 Updated Cinematic Text Animation
     const STEP_TIMINGS = [
       { enter: 40, pause: 55, exit: 40 }, // 1️⃣ longer intro
-      { enter: 35, pause: 30, exit: 30 }, // 2️⃣ medium
-      { enter: 40, pause: 50, exit: 40 }, // 3️⃣ slightly longer
+      { enter: 40, pause: 46, exit: 40 }, // 2️⃣ medium
+      { enter: 40, pause: 45, exit: 40 }, // 3️⃣ slightly longer
       { enter: 40, pause: 60, exit: 45 }, // 4️⃣ longer dramatic line
       { enter: 40, pause: 43, exit: 40 }, // 5️⃣ normal
       { enter: 40, pause: 50, exit: 40 }, // 6️⃣ CTA stays longest
