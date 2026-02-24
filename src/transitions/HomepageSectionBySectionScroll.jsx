@@ -368,6 +368,15 @@ export default function HomepageSectionBySectionScroll() {
         { clamp: true }
       );
 
+  const footerProgress = prefersReducedMotion
+    ? 0
+    : useTransform(
+        scrollYProgress,
+        [bounds.IMPACT_TO_FOOTER.start, bounds.FOOTER_HOLD.end],
+        [0, 1],
+        { clamp: true }
+      );
+
   const makeOpacity = (inSeg, outSeg) =>
     prefersReducedMotion
       ? 1
@@ -687,7 +696,7 @@ export default function HomepageSectionBySectionScroll() {
             className="absolute inset-0 z-[49]"
           >
             <Suspense fallback={null}>
-              <Footer />
+              <Footer progress={footerProgress} active={activeIndex === 8} />
             </Suspense>
           </motion.div>
         )}

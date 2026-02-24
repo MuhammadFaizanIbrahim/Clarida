@@ -16,7 +16,7 @@ const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
 
 const FIRST_FRAME_SRC = framePaths[0];
 
-const STEP_KEY_FRAMES = [40, 140, 245, 330, 440, 527];
+const STEP_KEY_FRAMES = [40, 160, 243, 330, 438, 535];
 
 const storySteps = [
   { text: "The zebrafish contains one of biology's deepest secrets:" },
@@ -245,27 +245,24 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       }
     }
 
-    // 🔥 Updated Cinematic Text Animation
     const STEP_TIMINGS = [
-      { enter: 40, pause: 55, exit: 40 }, // 1️⃣ longer intro
-      { enter: 40, pause: 46, exit: 40 }, // 2️⃣ medium
-      { enter: 40, pause: 45, exit: 40 }, // 3️⃣ slightly longer
-      { enter: 40, pause: 60, exit: 45 }, // 4️⃣ longer dramatic line
-      { enter: 40, pause: 43, exit: 40 }, // 5️⃣ normal
-      { enter: 40, pause: 50, exit: 40 }, // 6️⃣ CTA stays longest
+      { enter: 40, pause: 35, exit: 40 },
+      { enter: 40, pause: 46, exit: 40 },
+      { enter: 40, pause: 46, exit: 40 },
+      { enter: 40, pause: 67, exit: 45 },
+      { enter: 40, pause: 46, exit: 60 },
+      { enter: 40, pause: 60, exit: 40 },
     ];
 
-    // Slightly reduce travel intensity for smoother motion
-    const START_Y = 200;
-    const PAUSE_Y = 100;
-    const EXIT_Y = -10;
+    const START_Y = 180;
+    const PAUSE_Y = 80;
+    const EXIT_Y = -25;
 
     storySteps.forEach((_, idx) => {
       const textEl = textRefs.current[idx];
       if (!textEl) return;
 
       const kf = STEP_KEY_FRAMES[idx];
-
       const { enter, pause, exit } = STEP_TIMINGS[idx];
 
       const enterStart = kf - enter;
@@ -276,30 +273,50 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       let opacity = 0;
       let y = START_Y;
 
-      // Enter
-      if (frameIndex >= enterStart && frameIndex < pauseStart) {
-        const t = clamp01((frameIndex - enterStart) / enter);
-        const eased = t * t * (3 - 2 * t); // smoothstep (very smooth)
-        opacity = eased;
-        y = START_Y * (1 - eased) + PAUSE_Y * eased;
-      }
+      if (frameIndex >= enterStart && frameIndex <= exitEnd) {
+        const totalDuration = exitEnd - enterStart;
+        const progressT = clamp01((frameIndex - enterStart) / totalDuration);
 
-      // Pause
-      else if (frameIndex >= pauseStart && frameIndex <= pauseEnd) {
-        opacity = 1;
-        y = PAUSE_Y;
-      }
+        const fadeInEnd = 0.15;
+        const fadeOutStart = 0.8;
 
-      // Exit
-      else if (frameIndex > pauseEnd && frameIndex <= exitEnd) {
-        const t = clamp01((frameIndex - pauseEnd) / exit);        
-        const eased = t * t * (3 - 2 * t); // same smooth curve
-        opacity = 1 - eased;
-        y = PAUSE_Y + (EXIT_Y - PAUSE_Y) * eased;
-      }
+        if (progressT < fadeInEnd) {
+          opacity = progressT / fadeInEnd;
+        } else if (progressT > fadeOutStart) {
+          opacity = 1 - (progressT - fadeOutStart) / (1 - fadeOutStart);
+        } else {
+          opacity = 1;
+        }
 
-      // After Exit — keep it gone and above
-      else if (frameIndex > exitEnd) {
+        // --- FAST → SLOW → ACCELERATE (Fully Smooth) ---
+
+        // 1️⃣ Base acceleration for fast entry
+        let curvedT = Math.pow(progressT, 0.5);
+        // smaller = faster bottom (0.7 = very fast, 0.8 = moderate)
+
+        // 2️⃣ Create smooth slow zone in middle using Gaussian curve
+        const slowStrength = 0.95; // how slow the middle becomes
+        const slowWidth = 0.22; // width of slow zone (smaller = tighter)
+
+        // Gaussian bell curve centered at 0.5
+        const gaussian = Math.exp(
+          -Math.pow(progressT - 0.5, 2) / (2 * slowWidth * slowWidth)
+        );
+
+        // Compress movement in middle smoothly
+        curvedT = curvedT - gaussian * slowStrength * 0.26;
+        // 3️⃣ After middle, add natural acceleration boost
+        const accelStart = 0.55; // when acceleration begins
+        if (progressT > accelStart) {
+          const accelT = (progressT - accelStart) / (1 - accelStart);
+          curvedT += Math.pow(accelT, 1.4) * 0.08;
+        }
+
+        // Clamp to keep safe
+        curvedT = clamp01(curvedT);
+
+        y = START_Y + (EXIT_Y - START_Y) * curvedT;
+      } else if (frameIndex > exitEnd) {
         opacity = 0;
         y = EXIT_Y;
       }

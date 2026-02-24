@@ -310,7 +310,7 @@ export default function RegenerationTimelineExternal({
     if (dist <= 0) return;
 
     const TOTAL_VH = 3320;
-    const TO_ACTIVATION_FIRST_SCREEN_VH = 1820;
+    const TO_ACTIVATION_FIRST_SCREEN_VH = 1795;
     const targetP = TO_ACTIVATION_FIRST_SCREEN_VH / TOTAL_VH;
 
     const yTarget = Math.min(end - 2, start + targetP * dist + 2);

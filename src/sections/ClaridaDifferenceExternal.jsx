@@ -1,5 +1,6 @@
 // src/sections/ClaridaDifferenceExternal.jsx
 import React, { useEffect, useLayoutEffect, useRef } from "react";
+import { gsap } from "gsap";
 import { useMotionValueEvent } from "framer-motion";
 import Button from "../components/Button.jsx";
 
@@ -20,6 +21,13 @@ export default function ClaridaDifferenceExternal({ progress }) {
   const sectionRef = useRef(null);
   const canvasRef = useRef(null);
   const textRef = useRef(null);
+
+  // ✅ smooth entrance (same feel as GlobalCommunityImpact)
+  const didIntroRef = useRef(false);
+  const lastPRef = useRef(0);
+  const INTRO_Y = 80; // a little from bottom
+  const INTRO_SCALE = 0.7; // ✅ start smaller
+  const INTRO_DURATION = 7.5; // slow + smooth
 
   const preloadedFramesRef = useRef([]);
   const lastFrameIndexRef = useRef(-1);
@@ -235,7 +243,7 @@ export default function ClaridaDifferenceExternal({ progress }) {
     const text = textRef.current;
     if (!text) return;
 
-    const FADE_END = 0.4;
+    const FADE_END = 0.3;
     const finalT = p <= FADE_END ? p / FADE_END : 1;
 
     const maxBlur = 14;
@@ -284,12 +292,62 @@ export default function ClaridaDifferenceExternal({ progress }) {
   useLayoutEffect(() => {
     const current = clamp01(progress?.get?.() ?? 0);
     renderFromProgress(current, true);
+
+    // keep entrance state consistent on mount
+    const el = textRef.current;
+    const THRESH = 0.002;
+    if (el) {
+      if (current <= THRESH) {
+        didIntroRef.current = false;
+        gsap.set(el, { y: INTRO_Y, scale: INTRO_SCALE });
+      } else {
+        didIntroRef.current = true;
+        gsap.set(el, { y: 0, scale: 1 });
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // drive frames + blur from external progress
   useMotionValueEvent(progress, "change", (p) => {
     renderFromProgress(p, false);
+
+    // ✅ trigger the same slow/smooth up animation when this section begins
+    const el = textRef.current;
+    if (!el) return;
+
+    const pp = clamp01(p);
+    const prevP = lastPRef.current;
+    lastPRef.current = pp;
+
+    const THRESH = 0.002;
+
+    // reset when we return near start so it can replay
+    if (pp <= THRESH) {
+      didIntroRef.current = false;
+      gsap.killTweensOf(el);
+      gsap.set(el, { y: INTRO_Y, scale: INTRO_SCALE });
+      return;
+    }
+
+    // trigger exactly when we begin moving off the start
+    if (!didIntroRef.current && prevP <= THRESH && pp > THRESH) {
+      didIntroRef.current = true;
+      gsap.killTweensOf(el);
+      gsap.fromTo(
+        el,
+        { y: INTRO_Y, scale: INTRO_SCALE, willChange: "transform" },
+        {
+          y: 0,
+          scale: 1,
+          duration: INTRO_DURATION,
+          delay: 0.5,
+          ease: "expo.out",
+          overwrite: true,
+          clearProps: "willChange",
+        }
+      );
+    }
   });
 
   return (
@@ -308,8 +366,7 @@ export default function ClaridaDifferenceExternal({ progress }) {
 
       <div
         ref={textRef}
-        className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 gap-3 md:gap-8 z-20"
-        style={{
+        className="absolute inset-0 flex flex-col items-center text-center px-6 gap-3 md:gap-8 z-20 pt-[14vh] md:pt-[16vh] lg:pt-[20vh]"        style={{
           opacity: 0,
           filter: "blur(14px)",
           transition: "opacity 0.15s linear, filter 0.15s linear",

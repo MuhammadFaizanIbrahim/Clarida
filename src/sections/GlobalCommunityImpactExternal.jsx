@@ -1,24 +1,40 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { gsap } from "gsap";
 import { useMotionValue, useMotionValueEvent } from "framer-motion";
 import Button from "../components/Button.jsx";
 
-const TOTAL_FRAMES = 150;
+const TOTAL_FRAMES = 120;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");
-  return `/frames/GlobalCommunityImpact/frame_${index}.webp`;
+  return `/frames/GlobalCommunityImpactFull/frame_${index}.webp`;
 });
 
 const FIRST_FRAME_SRC = framePaths[0];
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
-const isMotionValue = (v) => v && typeof v === "object" && typeof v.get === "function";
+const isMotionValue = (v) =>
+  v && typeof v === "object" && typeof v.get === "function";
 
-export default function GlobalCommunityImpactExternal({ progress = 0, active = true }) {
+export default function GlobalCommunityImpactExternal({
+  progress = 0,
+  active = true,
+}) {
   const sectionRef = useRef(null);
   const canvasRef = useRef(null);
   const textRef = useRef(null);
+
+  const contentRef = useRef(null);
+
+  // ✅ replay control (works even if active stays true)
+  const didIntroRef = useRef(false);
+  const lastPRef = useRef(0);
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -29,10 +45,14 @@ export default function GlobalCommunityImpactExternal({ progress = 0, active = t
   const logicalHeightRef = useRef(0);
 
   const fallback = useMotionValue(0);
-  const mv = useMemo(() => (isMotionValue(progress) ? progress : fallback), [progress, fallback]);
+  const mv = useMemo(
+    () => (isMotionValue(progress) ? progress : fallback),
+    [progress, fallback]
+  );
 
   useEffect(() => {
-    if (!isMotionValue(progress)) fallback.set(typeof progress === "number" ? progress : 0);
+    if (!isMotionValue(progress))
+      fallback.set(typeof progress === "number" ? progress : 0);
   }, [progress, fallback]);
 
   // preload frames incrementally
@@ -179,7 +199,8 @@ export default function GlobalCommunityImpactExternal({ progress = 0, active = t
       canvas.height = height * dpr;
       ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const idx = lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
+      const idx =
+        lastFrameIndexRef.current >= 0 ? lastFrameIndexRef.current : 0;
       drawFrame(idx);
     };
 
@@ -194,11 +215,68 @@ export default function GlobalCommunityImpactExternal({ progress = 0, active = t
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ slower + smoother entrance
+  const INTRO_Y = 800; // starts slightly lower
+  const INTRO_DURATION = 5; // slower animation
+
+  const runIntro = () => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    gsap.killTweensOf(el);
+    gsap.fromTo(
+      el,
+      { y: INTRO_Y, opacity: 0, willChange: "transform, opacity" },
+      {
+        y: 0,
+        opacity: 1,
+        duration: INTRO_DURATION,
+        delay: 0.4,           // ← adjust this (0.3–0.6 feels premium)
+        ease: "expo.out",
+        overwrite: true,
+        clearProps: "willChange",
+      }
+    );
+  };
+
+  // reset when inactive so it can replay
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!active) {
+      didIntroRef.current = false;
+      lastPRef.current = 0;
+      if (el) gsap.set(el, { y: INTRO_Y, opacity: 0 });
+    }
+  }, [active]);
+
   const apply = (pRaw) => {
     if (!active) return;
 
     const p = clamp01(pRaw);
-    const frameIndex = Math.min(TOTAL_FRAMES - 1, Math.floor(p * (TOTAL_FRAMES - 1)));
+
+    // ✅ Replay logic: whenever progress goes back near 0 and starts again
+    const prevP = lastPRef.current;
+    lastPRef.current = p;
+
+    const el = contentRef.current;
+    const THRESH = 0.002;
+
+    // when we're effectively at the start, reset state so next entry replays
+    if (p <= THRESH) {
+      didIntroRef.current = false;
+      if (el) gsap.set(el, { y: INTRO_Y, opacity: 0 });
+    }
+
+    // trigger exactly when we begin moving off the start
+    if (!didIntroRef.current && prevP <= THRESH && p > THRESH) {
+      didIntroRef.current = true;
+      runIntro();
+    }
+
+    const frameIndex = Math.min(
+      TOTAL_FRAMES - 1,
+      Math.floor(p * (TOTAL_FRAMES - 1))
+    );
 
     if (frameIndex !== lastFrameIndexRef.current) {
       lastFrameIndexRef.current = frameIndex;
@@ -226,20 +304,17 @@ export default function GlobalCommunityImpactExternal({ progress = 0, active = t
       <canvas ref={canvasRef} className="h-full w-full block" />
 
       <div
+        ref={contentRef}
         // ref={textRef}
         className="absolute left-0 md:-left-40 lg:left-30 2xl:left-40 top-0 h-full flex flex-col gap-2 md:gap-8 justify-center items-center text-center w-full lg:w-[46%] z-20"
-        // style={{
-        //   opacity: 0,
-        //   filter: "blur(14px)",
-        //   transition: "opacity 0.15s linear, filter 0.15s linear",
-        // }}
       >
         <h2 className="h2-text w-[400px] md:w-[600px] lg:w-[700px] 2xl:w-[950px]">
           One World. One <span className="h2-text-bold">Vision.</span>
         </h2>
 
         <p className="section-4-paragraph-text w-[350px] md:w-[600px] lg:w-[700px] 2xl:w-[950px] md:mt-3">
-          From New York to Nairobi, Sydney to São Paulo—millions are waiting to reclaim their clarity.
+          From New York to Nairobi, Sydney to São Paulo—millions are waiting to
+          reclaim their clarity.
         </p>
 
         <img
@@ -268,9 +343,11 @@ export default function GlobalCommunityImpactExternal({ progress = 0, active = t
               `}
             >
               <p className="section-4-paragraph-text w-[350px] md:w-[600px] lg:w-[700px] 2xl:w-[950px]">
-                Clarida is more than a product or protocol. It’s a movement of individuals who refuse to accept vision loss
-                as their final story. Together, we are building a future where clarity returns, independence is restored,
-                and hope is shared across every horizon.
+                Clarida is more than a product or protocol. It’s a movement of
+                individuals who refuse to accept vision loss as their final
+                story. Together, we are building a future where clarity returns,
+                independence is restored, and hope is shared across every
+                horizon.
               </p>
             </div>
           </div>
@@ -279,9 +356,14 @@ export default function GlobalCommunityImpactExternal({ progress = 0, active = t
             extra="gap-2 mt-5 lg:mt-10 lg:gap-4 lg:py-[12px] lg:px-[12px] flex"
             onClick={() => {
               window.dispatchEvent(new CustomEvent("clarida-jump-footer"));
-            }}          >
+            }}
+          >
             Join The Clarida Network
-            <img src="icons/arrowIcon.svg" alt="Clarida Text" className="rotate-270" />
+            <img
+              src="icons/arrowIcon.svg"
+              alt="Clarida Text"
+              className="rotate-270"
+            />
           </Button>
         </div>
       </div>
