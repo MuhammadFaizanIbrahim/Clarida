@@ -16,7 +16,7 @@ const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
 
 const FIRST_FRAME_SRC = framePaths[0];
 
-const STEP_KEY_FRAMES = [40, 160, 243, 330, 438, 535];
+const STEP_KEY_FRAMES = [40, 160, 243, 330, 438, 550];
 
 const storySteps = [
   { text: "The zebrafish contains one of biology's deepest secrets:" },
@@ -246,17 +246,18 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
     }
 
     const STEP_TIMINGS = [
-      { enter: 40, pause: 35, exit: 40 },
+      { enter: 40, pause: 50, exit: 40 },
       { enter: 40, pause: 46, exit: 40 },
       { enter: 40, pause: 46, exit: 40 },
       { enter: 40, pause: 67, exit: 45 },
-      { enter: 40, pause: 46, exit: 60 },
-      { enter: 40, pause: 60, exit: 40 },
+      { enter: 40, pause: 37, exit: 60 },
+      { enter: 40, pause: 80, exit: 120 },
     ];
 
     const START_Y = 180;
     const PAUSE_Y = 80;
-    const EXIT_Y = -25;
+    const BASE_EXIT_Y = -25;
+    const LAST_EXIT_Y = -120; // 👈 how high you want the last one to go
 
     storySteps.forEach((_, idx) => {
       const textEl = textRefs.current[idx];
@@ -268,7 +269,11 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
       const enterStart = kf - enter;
       const pauseStart = kf;
       const pauseEnd = pauseStart + pause;
-      const exitEnd = pauseEnd + exit;
+      const rawExitEnd = pauseEnd + exit;
+
+      // ✅ IMPORTANT: last step should animate all the way to the end of the section
+      const isLast = idx === storySteps.length - 1;
+      const exitEnd = isLast ? lastIndex : rawExitEnd;
 
       let opacity = 0;
       let y = START_Y;
@@ -315,10 +320,12 @@ export default function InteractiveRegenerationExternal({ progress, active }) {
         // Clamp to keep safe
         curvedT = clamp01(curvedT);
 
-        y = START_Y + (EXIT_Y - START_Y) * curvedT;
+        const exitY = idx === storySteps.length - 1 ? LAST_EXIT_Y : BASE_EXIT_Y;
+        y = START_Y + (exitY - START_Y) * curvedT;
       } else if (frameIndex > exitEnd) {
+        const exitY = idx === storySteps.length - 1 ? LAST_EXIT_Y : BASE_EXIT_Y;
         opacity = 0;
-        y = EXIT_Y;
+        y = exitY;
       }
 
       gsap.set(textEl, { opacity, y });

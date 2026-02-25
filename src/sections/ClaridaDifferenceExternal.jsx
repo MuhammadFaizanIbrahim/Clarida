@@ -21,6 +21,7 @@ export default function ClaridaDifferenceExternal({ progress }) {
   const sectionRef = useRef(null);
   const canvasRef = useRef(null);
   const textRef = useRef(null);
+  const vignetteRef = useRef(null);
 
   // ✅ smooth entrance (same feel as GlobalCommunityImpact)
   const didIntroRef = useRef(false);
@@ -245,6 +246,24 @@ export default function ClaridaDifferenceExternal({ progress }) {
 
     const FADE_END = 0.3;
     const finalT = p <= FADE_END ? p / FADE_END : 1;
+    const vignette = vignetteRef.current;
+    if (vignette) {
+      // Delay fade start
+      const VIGNETTE_DELAY = 0.4; // 0 = no delay, 0.5 = half duration delay
+
+      let vignetteProgress = 0;
+
+      if (finalT > VIGNETTE_DELAY) {
+        vignetteProgress = (finalT - VIGNETTE_DELAY) / (1 - VIGNETTE_DELAY);
+      }
+
+      vignetteProgress = clamp01(vignetteProgress);
+
+      // Smooth fade
+      const vignetteOpacity = 1 - Math.pow(vignetteProgress, 1.2);
+
+      vignette.style.opacity = String(vignetteOpacity);
+    }
 
     const maxBlur = 14;
     const blur = maxBlur * (1 - finalT);
@@ -363,10 +382,21 @@ export default function ClaridaDifferenceExternal({ progress }) {
       <canvas ref={canvasRef} className="h-full w-full block" />
 
       <div className="absolute inset-0 bg-black/35 md:bg-black/40 lg:bg-black/45 pointer-events-none z-10" />
+      <div
+        ref={vignetteRef}
+        className="absolute inset-0 pointer-events-none z-[15]"
+        style={{
+          backgroundImage: `
+      radial-gradient(120% 85% at 80% 85%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.65) 78%, rgba(0,0,0,0.9) 100%),
+      linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.35) 22%, rgba(0,0,0,0) 45%)
+    `,
+        }}
+      />
 
       <div
         ref={textRef}
-        className="absolute inset-0 flex flex-col items-center text-center px-6 gap-3 md:gap-8 z-20 pt-[14vh] md:pt-[16vh] lg:pt-[20vh]"        style={{
+        className="absolute inset-0 flex flex-col items-center text-center px-6 gap-3 md:gap-8 z-20 pt-[14vh] md:pt-[16vh] lg:pt-[20vh]"
+        style={{
           opacity: 0,
           filter: "blur(14px)",
           transition: "opacity 0.15s linear, filter 0.15s linear",

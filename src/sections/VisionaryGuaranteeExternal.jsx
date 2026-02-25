@@ -25,7 +25,7 @@ const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
 const FIRST_FRAME_SRC = framePaths[0];
 
 // key frames where each step should peak
-const STEP_KEY_FRAMES = [10, 90, 175];
+const STEP_KEY_FRAMES = [10, 105, 190];
 const FIRST_STORY_FRAME = STEP_KEY_FRAMES[0];
 
 // ----------------- TEXT STEPS -----------------
@@ -33,7 +33,7 @@ const storySteps = [
   {
     content: (
       <>
-        This isn’t about supplements — it’s about rhythm, signals & biology
+        This isn’t about supplements, it’s about rhythm, signals & biology
         reawakened, a protocol timed to your body’s own intelligence, rooted in
         circadian and regenerative science.
       </>
@@ -42,16 +42,16 @@ const storySteps = [
   {
     content: (
       <>
-        And backed by a promise — if you don’t feel the shift in clarity, in
-        comfort, in confidence, you’ll get your money back.
+        And backed by a promise, if you don’t feel <br /> the shift in clarity,
+        in comfort, in confidence, <br /> you’ll get your money back.
       </>
     ),
   },
   {
     content: (
       <>
-        Because real vision isn’t just what you see — it’s a rhythm you can
-        trust, or your money back.
+        Because real vision isn’t just what you see, <br /> it’s a rhythm you
+        can trust, or your money back.
       </>
     ),
   },
@@ -407,14 +407,17 @@ export default function VisionaryGuaranteeExternal({
     // ----------------- TEXT EFFECT (Inter-Regen curve, NO HOLD, SMOOTH) -----------------
     // ✅ ONLY CHANGE HERE: increase exit durations so text stays on screen longer
     const STEP_TIMINGS = [
+      { enter: 18, exit: 105 },
       { enter: 18, exit: 120 },
-      { enter: 18, exit: 160 },
-      { enter: 18, exit: 175 },
+      { enter: 18, exit: 210 },
     ];
 
-    const START_Y = 600;
-    const EXIT_Y = -25;
+    // ✅ change: separate start Y for last text
+    const START_Y_NORMAL = 400;
+    const START_Y_LAST = 500;
 
+    const EXIT_Y_NORMAL = 150;
+    const EXIT_Y_LAST = 70; // smaller = higher on screen (try 120, 110, 90)
     const TEXT_KEY_FRAMES = STEP_KEY_FRAMES;
 
     const curveTravel = (t) => {
@@ -441,6 +444,9 @@ export default function VisionaryGuaranteeExternal({
       return clamp01(curved);
     };
 
+    // ✅ NEW: last text moves up faster (only affects step 3)
+    const LAST_TEXT_EASE_POWER = 2.2; // higher = faster upward travel for last text
+
     const SMOOTH_T = 0.22; // higher = faster response, lower = smoother glide
 
     storySteps.forEach((_, idx) => {
@@ -449,6 +455,10 @@ export default function VisionaryGuaranteeExternal({
 
       const kf = TEXT_KEY_FRAMES[idx];
       const { enter, exit } = STEP_TIMINGS[idx];
+
+      // ✅ change: per-step startY
+      const startY =
+        idx === storySteps.length - 1 ? START_Y_LAST : START_Y_NORMAL;
 
       // Desired window
       let desiredStart = kf - enter;
@@ -463,37 +473,67 @@ export default function VisionaryGuaranteeExternal({
       }
 
       let targetO = 0;
-      let targetY = START_Y;
+      let targetY = startY;
 
       if (frameIndex >= desiredStart && frameIndex <= desiredEnd) {
         const t = clamp01(
           (frameIndex - desiredStart) / (desiredEnd - desiredStart || 1)
         );
+
+        // base travel (same for all)
         const tt = curveTravel(t);
 
-        // smooth fade in/out (no hold plateau)
+        // ✅ opacity exactly like your original (NO HOLD plateau)
         const fadeInEnd = 0.18;
-        const fadeOutStart = 0.72;
+        const fadeOutStart = idx === storySteps.length - 1 ? 0.84 : 0.72;
 
         if (tt < fadeInEnd) targetO = tt / fadeInEnd;
         else if (tt > fadeOutStart)
           targetO = 1 - (tt - fadeOutStart) / (1 - fadeOutStart);
         else targetO = 1;
 
-        targetY = START_Y + (EXIT_Y - START_Y) * tt;
+        // ✅ Y travel: normal for all, but last text speeds up ONLY near the end
+        let ttY = tt;
+
+        if (idx === storySteps.length - 1) {
+          // ✅ Move up happens in the first part of the window...
+          const MOVE_END = 0.78; // by ~78% of the timeline it reaches the top
+          const SPEEDUP_START = 0.7; // speed-up begins near the end of the move
+          const SPEEDUP_POWER = 3.2; // higher = faster final push upward
+
+          // normalize movement time (0..1) within MOVE_END
+          let m = clamp01(tt / MOVE_END);
+
+          // speed-up only near the end of the movement (not the whole window)
+          if (m > SPEEDUP_START) {
+            const u = (m - SPEEDUP_START) / (1 - SPEEDUP_START);
+            const uFast = 1 - Math.pow(1 - u, SPEEDUP_POWER);
+            m = SPEEDUP_START + uFast * (1 - SPEEDUP_START);
+          }
+
+          // after MOVE_END, it holds at the top (so it "remains" longer)
+          ttY = m;
+        }
+
+        const exitY =
+          idx === storySteps.length - 1 ? EXIT_Y_LAST : EXIT_Y_NORMAL;
+
+        targetY = startY + (exitY - startY) * ttY;
       } else if (frameIndex > desiredEnd) {
+        const exitY =
+          idx === storySteps.length - 1 ? EXIT_Y_LAST : EXIT_Y_NORMAL;
+
         targetO = 0;
-        targetY = EXIT_Y;
+        targetY = exitY; // ✅ use the correct one
       } else {
         targetO = 0;
-        targetY = START_Y;
+        targetY = startY;
       }
-
       // ✅ Smooth output (prevents jitter)
       const prevY =
         typeof smoothYRef.current[idx] === "number"
           ? smoothYRef.current[idx]
-          : START_Y;
+          : startY;
       const prevO =
         typeof smoothORef.current[idx] === "number"
           ? smoothORef.current[idx]
@@ -537,15 +577,15 @@ export default function VisionaryGuaranteeExternal({
 
       {storySteps.map((step, index) => (
         <div
-        key={index}
-        ref={(el) => (textRefs.current[index] = el)}
-        className="absolute inset-0 items-center justify-center px-80"
-        style={{ opacity: 0, transform: "translateY(0px)" }}
-      >
-        <p className="section-5-text text-center leading-[1.6]">
-          {step.content}
-        </p>
-      </div>
+          key={index}
+          ref={(el) => (textRefs.current[index] = el)}
+          className="absolute inset-0 items-center justify-center px-[150px]"
+          style={{ opacity: 0, transform: "translateY(0px)" }}
+        >
+          <p className="section-5-text text-center w-[75vw] m-auto leading-[1.6]">
+            {step.content}
+          </p>
+        </div>
       ))}
     </section>
   );
