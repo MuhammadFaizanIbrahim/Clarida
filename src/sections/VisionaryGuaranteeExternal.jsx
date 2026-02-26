@@ -15,7 +15,7 @@ const isMotionValue = (v) =>
   v && typeof v === "object" && typeof v.get === "function";
 
 // ----------------- FRAME SETUP -----------------
-const TOTAL_FRAMES = 313;
+const TOTAL_FRAMES = 290;
 
 const framePaths = Array.from({ length: TOTAL_FRAMES }, (_, i) => {
   const index = String(i + 1).padStart(5, "0");

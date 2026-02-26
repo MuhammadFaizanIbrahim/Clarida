@@ -109,7 +109,7 @@ const Footer = ({ progress = 0, active = true }) => {
 
       {/* ✅ Overlay stays STATIC (not animated) */}
       <div
-        className="absolute inset-0 bg-black/50 z-10 flex flex-col justify-between
+        className="absolute inset-0 bg-black/10 z-10 flex flex-col justify-between
        py-13 px-5 md:py-8 md:px-18 lg:py-10 lg:px-40 2xl:px-[260px] gap-5 md:gap-10"
       >
         {/* ✅ Only this wrapper animates */}
