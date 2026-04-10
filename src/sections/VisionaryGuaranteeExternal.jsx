@@ -579,7 +579,7 @@ export default function VisionaryGuaranteeExternal({
         <div
           key={index}
           ref={(el) => (textRefs.current[index] = el)}
-          className="absolute inset-0 items-center justify-center px-[150px]"
+          className="absolute inset-0 items-center justify-center lg:px-[150px]"
           style={{ opacity: 0, transform: "translateY(0px)" }}
         >
           <p className="section-5-text text-center w-[75vw] m-auto leading-[1.6]">
