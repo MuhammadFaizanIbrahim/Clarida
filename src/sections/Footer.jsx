@@ -161,12 +161,12 @@ const Footer = ({ progress = 0, active = true }) => {
               />
             </div>
 
-            {/* Label + Dropdown — always stacked on mobile */}
+            {/* Label + Dropdown */}
             <div className="flex flex-col md:flex-row md:justify-between lg:justify-center 2xl:justify-between items-start md:items-center gap-2 md:gap-4 lg:gap-0 2xl:gap-4 w-full">
               <label className="footer-small-text-bold text-left w-full md:w-[400px] lg:w-[450px] 2xl:w-[460px]">
                 Why are you contacting Clarida? Please choose from the list
               </label>
-              <div className="w-auto">
+              <div className="w-full md:w-[300px] lg:w-[450px] xl:w-[420px] 2xl:w-[460px]">
                 <CustomSelect />
               </div>
             </div>

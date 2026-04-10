@@ -1,4 +1,3 @@
-// CustomSelect.jsx
 import React, { useState } from "react";
 
 const CustomSelect = () => {
@@ -13,10 +12,10 @@ const CustomSelect = () => {
   };
 
   return (
-    <div className="relative w-[350px] md:w-[390px] lg:w-[450px] 2xl:w-[460px]">
+    <div className="relative w-full">
       <div
         onClick={toggleDropdown}
-        className="flex justify-between items-center footer-small-text px-5 md:px-[26px] py-2 h-12 md:h-14 lg:h-[2.92vw]
+        className="flex justify-between items-center footer-small-text px-4 md:px-[26px] py-2 h-11 sm:h-12 md:h-14 lg:h-[2.92vw]
          bg-transparent border border-[rgba(255,255,255,0.50)] rounded-lg focus:outline-none backdrop-blur-[5px] cursor-pointer"
       >
         <span className="text-left">{selectedOption}</span>
@@ -30,25 +29,25 @@ const CustomSelect = () => {
         <div className="absolute left-0 mt-1 w-full bg-transparent border border-[rgba(255,255,255,0.50)] rounded-lg backdrop-blur-[5px] z-10">
           <div
             onClick={() => handleSelect("I want more information")}
-            className="footer-small-text text-left py-3 px-5 md:px-[26px] hover:bg-[rgba(255,255,255,0.1)] cursor-pointer"
+            className="footer-small-text text-left py-3 px-4 md:px-[26px] hover:bg-[rgba(255,255,255,0.1)] cursor-pointer"
           >
             I want more information
           </div>
           <div
             onClick={() => handleSelect("My vision is failing")}
-            className="footer-small-text text-left py-3 px-5 md:px-[26px] hover:bg-[rgba(255,255,255,0.1)] cursor-pointer"
+            className="footer-small-text text-left py-3 px-4 md:px-[26px] hover:bg-[rgba(255,255,255,0.1)] cursor-pointer"
           >
             My vision is failing
           </div>
           <div
             onClick={() => handleSelect("Sign me up for a trial")}
-            className="footer-small-text text-left py-3 px-5 md:px-[26px] hover:bg-[rgba(255,255,255,0.1)] cursor-pointer"
+            className="footer-small-text text-left py-3 px-4 md:px-[26px] hover:bg-[rgba(255,255,255,0.1)] cursor-pointer"
           >
             Sign me up for a trial
           </div>
           <div
             onClick={() => handleSelect("I want to reserve early access")}
-            className="footer-small-text text-left py-3 px-5 md:px-[26px] hover:bg-[rgba(255,255,255,0.1)] cursor-pointer"
+            className="footer-small-text text-left py-3 px-4 md:px-[26px] hover:bg-[rgba(255,255,255,0.1)] cursor-pointer"
           >
             I want to reserve early access
           </div>
