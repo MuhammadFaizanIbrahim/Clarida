@@ -166,7 +166,7 @@ const Footer = ({ progress = 0, active = true }) => {
               <label className="footer-small-text-bold text-left w-full md:w-[400px] lg:w-[450px] 2xl:w-[460px]">
                 Why are you contacting Clarida? Please choose from the list
               </label>
-              <div className="w-full md:w-auto">
+              <div className="w-auto">
                 <CustomSelect />
               </div>
             </div>
